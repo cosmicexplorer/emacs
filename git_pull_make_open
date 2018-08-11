@@ -76,7 +76,7 @@ function update-build-push {
   update-from-upstream \
     && update-my-patchset \
     && run-emacs-build test \
-    && git push "$ORIGIN_REMOTE_NAME" "$EXPERIMENTAL_BRANCH"
+    && git push --force-with-lease "$ORIGIN_REMOTE_NAME" "$EXPERIMENTAL_BRANCH"
 }
 
 function build-push-run {
