@@ -9,6 +9,9 @@ CONTAINING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 STDIO_TMP="$(mktemp -d)"
 trap 'rm -rf "$STDIO_TMP"' EXIT
 
+STDOUT_FILE="${STDIO_TMP}/stdout"
+STDERR_FILE="${STDIO_TMP}/stderr"
+
 DIE_ERROR_OUT_DIRNAME='die-error-out'
 
 function die {
@@ -60,16 +63,11 @@ function run-emacs-build {
     ./autogen.sh
   fi
 
-  if [[ ! -f 'Makefile' ]]; then
+  if [[ ! -f './Makefile' ]]; then
     ./configure
   fi
 
-  local -r stdout_file="${STDIO_TMP}/stdout"
-  local -r stderr_file="${STDIO_TMP}/stderr"
-
-  make "$make_goal" "-j${MAKE_JOBS}" \
-       > "$stdout_file" \
-       2> "$stderr_file"
+  make "$make_goal" "-j${MAKE_JOBS}"
 }
 
 function update-build-push {
@@ -79,13 +77,27 @@ function update-build-push {
     && git push --force-with-lease "$ORIGIN_REMOTE_NAME" "$EXPERIMENTAL_BRANCH"
 }
 
+function wrap-stdio {
+  local -a cmd=("$@")
+
+  "${cmd[@]}" \
+    > "$STDOUT_FILE" \
+    2> "$STDERR_FILE"
+}
+
 function build-push-run {
-  update-build-push \
-    && src/emacs &!
+  # Vaguely, if there are changes in the worktree (nonempty stdout).
+  if [[ ! -z "$(git status -s)" ]]; then
+    echo "CAN'T DO THIS WITH CHANGES -- SORRY!" >&2
+    die
+  fi
+
+  wrap-stdio update-build-push \
+      && wrap-stdio src/emacs &!
 }
 
 
 # Script is now executing.
 with-pushd "$CONTAINING_DIR" \
            build-push-run \
-           || die
+  || die
