@@ -1,22 +1,91 @@
-#!/bin/bash
+#!/usr/bin/env zsh
 
 set -euxo pipefail
 
-SPECIAL_BRANCH='with-git-pull-make-script'
+EXPERIMENTAL_BRANCH='with-git-pull-make-script'
 
-DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
+CONTAINING_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 
-cd "$DIR"
+STDIO_TMP="$(mktemp -d)"
+trap 'rm -rf "$STDIO_TMP"' EXIT
 
-git checkout master
-git pull upstream master
-git push origin master
+DIE_ERROR_OUT_DIRNAME='die-error-out'
 
-git checkout "$SPECIAL_BRANCH"
-git rebase master
+function die {
+  # This says to use argument #1 if defined, but if not, use the
+  # number 1.
+  local -r exit_code="${1:-1}"
 
-make test -j2
+  cp -r "$STDIO_TMP" "./${DIE_ERROR_OUT_DIRNAME}/"
 
-git push origin "$SPECIAL_BRANCH"
+  echo "Emacs update script failed -- see the contents of ${DIE_ERROR_OUT_DIRNAME}." >&2
 
-src/emacs &!
+  exit "$exit_code"
+}
+
+PUSHD_OUTPUT_LOCATION='/dev/null'
+
+function with-pushd {
+  local -r dir="$1"
+  local -a cmd=("${@:2}")
+
+  pushd "$dir" 2> "$PUSHD_OUTPUT_LOCATION"
+
+  "${cmd[@]}"
+
+  popd 2> "$PUSHD_OUTPUT_LOCATION"
+}
+
+ORIGIN_REMOTE_NAME='origin'
+UPSTREAM_REMOTE_NAME='upstream'
+BASE_BRANCH='master'
+
+function update-from-upstream {
+  git checkout "$BASE_BRANCH" \
+    && git pull "$UPSTREAM_REMOTE_NAME" "$BASE_BRANCH" \
+    && git push "$ORIGIN_REMOTE_NAME" "$BASE_BRANCH"
+}
+
+function update-my-patchset {
+  git checkout "$EXPERIMENTAL_BRANCH" \
+      && git rebase "$BASE_BRANCH"
+}
+
+MAKE_JOBS='2'
+
+function run-emacs-build {
+  local -r make_goal="$1"
+
+  if [[ ! -f './configure' ]]; then
+    ./autogen.sh
+  fi
+
+  if [[ ! -f 'Makefile' ]]; then
+    ./configure
+  fi
+
+  local -r stdout_file="${STDIO_TMP}/stdout"
+  local -r stderr_file="${STDIO_TMP}/stderr"
+
+  make "$make_goal" "-j${MAKE_JOBS}" \
+       > "$stdout_file" \
+       2> "$stderr_file"
+}
+
+function update-build-push {
+  update-from-upstream \
+    && update-my-patchset \
+    && run-emacs-build test \
+    && git push "$ORIGIN_REMOTE_NAME" "$EXPERIMENTAL_BRANCH"
+}
+
+function build-push-run {
+  update-build-push \
+    && src/emacs &!
+}
+
+
+# Script is now executing.
+with-pushd "$CONTAINING_DIR" \
+           build-push-run \
+           || die

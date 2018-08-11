@@ -289,3 +289,6 @@ nt/emacs.rc
 nt/emacsclient.rc
 src/gdb.ini
 /var/
+
+# Random ones I (Danny) added.
+/die-error-out/
