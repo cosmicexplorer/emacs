@@ -92,8 +92,9 @@ function build-push-run {
     die
   fi
 
-  wrap-stdio update-build-push \
-      && wrap-stdio src/emacs &!
+  if wrap-stdio update-build-push; then
+    wrap-stdio src/emacs &!
+  fi
 }
 
 
