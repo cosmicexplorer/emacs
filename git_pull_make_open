@@ -2,12 +2,21 @@
 
 set -euxo pipefail
 
+SPECIAL_BRANCH='with-git-pull-make-script'
+
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 
 cd "$DIR"
 
-git pull origin master
+git checkout master
+git pull upstream master
+git push origin master
+
+git checkout "$SPECIAL_BRANCH"
+git rebase master
 
 make test -j2
+
+git push origin "$SPECIAL_BRANCH"
 
 src/emacs &!
