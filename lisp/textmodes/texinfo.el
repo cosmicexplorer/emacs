@@ -74,7 +74,7 @@
   "Kill the process made by the \\[compile] command."
   t nil)
 
-(require 'texinfo-loaddefs)
+; (require 'texinfo-loaddefs)
 
 
 ;;; Code:
