@@ -1186,7 +1186,7 @@ q: Don't fix\n" func file))
   '((t (:inherit font-lock-doc-face)))
   "Face used to highlight function comment block.")
 
-(eval-when-compile (require 'texinfo))
+; (require 'texinfo)
 ;; Undo the effects of texinfo loading tex-mode loading compile.
 (declare-function compilation-forget-errors "compile" ())
 
@@ -1198,7 +1198,7 @@ q: Don't fix\n" func file))
                         (if (numberp (nth 1 kw))
                             `(,(nth 0 kw) ,(nth 1 kw) ,(nth 2 kw) prepend)
                           (message "Ignoring Texinfo highlight: %S" kw)))
-                      texinfo-font-lock-keywords)))))
+                      ())))))
     (font-lock-add-keywords
      nil
      `((,(lambda (limit)
