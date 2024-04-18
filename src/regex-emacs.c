@@ -5327,6 +5327,20 @@ bcmp_translate (re_char *s1, re_char *s2, ptrdiff_t len,
 
 /* Entry points for GNU code.  */
 
+#ifdef HAVE_REX
+static void *
+rex_alloc (void *_ctx, size_t n)
+{
+  return malloc (n);
+}
+
+static void
+rex_free (void *_ctx, void *p)
+{
+  free (p);
+}
+#endif /* HAVE_REX */
+
 /* re_compile_pattern is the GNU regular expression compiler: it
    compiles PATTERN (of length SIZE) and puts the result in BUFP.
    Returns 0 if the pattern was valid, otherwise an error string.
@@ -5350,6 +5364,18 @@ re_compile_pattern (const char *pattern, ptrdiff_t length,
 		       bufp);
 
   if (!ret)
-    return NULL;
+    {
+#ifdef HAVE_REX
+      REX_ForeignSlice data = { .len = length, .data = pattern };
+      REX_Pattern pattern = { .data = data };
+      REX_CallbackAllocator alloc
+	= { .ctx = NULL, .alloc = rex_alloc, .free = rex_free };
+
+      REX_RegexpError rex_ret
+	= rex_compile (&pattern, &alloc, &bufp->rex_result.result);
+      bufp->rex_result.tag = rex_ret;
+#endif
+      return NULL;
+    }
   return re_error_msgid[ret];
 }

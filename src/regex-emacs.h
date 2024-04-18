@@ -33,6 +33,15 @@ struct re_registers
 
 #include "lisp.h"
 
+#ifdef HAVE_REX
+# include <rex.h>
+struct REX_Result
+{
+  REX_RegexpError tag;
+  REX_CompileResult result;
+};
+#endif /* HAVE_REX */
+
 /* The string or buffer being matched.
    It is used for looking up syntax properties.
 
@@ -91,10 +100,13 @@ struct re_pattern_buffer
 	/* Number of subexpressions found by the compiler.  */
   ptrdiff_t re_nsub;
 
-        /* True if and only if this pattern can match the empty string.
-           Well, in truth it's used only in 're_search_2', to see
-           whether or not we should use the fastmap, so we don't set
-           this absolutely perfectly; see 're_compile_fastmap'.  */
+#ifdef HAVE_REX
+  struct REX_Result rex_result;
+#endif /* HAVE_REX */
+	/* True if and only if this pattern can match the empty string.
+	   Well, in truth it's used only in 're_search_2', to see
+	   whether or not we should use the fastmap, so we don't set
+	   this absolutely perfectly; see 're_compile_fastmap'.  */
   bool_bf can_be_null : 1;
 
         /* If REGS_UNALLOCATED, allocate space in the 'regs' structure
