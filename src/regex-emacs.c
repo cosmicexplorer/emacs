@@ -738,6 +738,32 @@ print_partial_compiled_pattern (FILE *dest, re_char *start, re_char *end)
   fprintf (dest, "%td:\tend of pattern.\n", p - start);
 }
 
+#ifdef HAVE_REX
+static void *
+rex_alloc (void *, size_t);
+
+static void
+rex_free (void *, void *);
+
+static void
+print_rex_pattern (FILE *dest, struct REX_Result result)
+{
+  if (!dest)
+    dest = stderr;
+
+  if (result.tag)
+    fprintf (dest, "rex error: %s\n", result.result.error);
+  else
+    {
+      REX_CallbackAllocator alloc
+	= { .ctx = NULL, .alloc = rex_alloc, .free = rex_free };
+      char *expr = rex_display_expr (&result.result.matcher, &alloc);
+      fprintf (dest, "rex expr: %s\n", expr);
+      alloc.free (alloc.ctx, expr);
+    }
+}
+#endif /* HAVE_REX */
+
 void
 print_compiled_pattern (FILE *dest, struct re_pattern_buffer *bufp)
 {
@@ -758,6 +784,10 @@ print_compiled_pattern (FILE *dest, struct re_pattern_buffer *bufp)
   fprintf (dest, "re_nsub: %td\t", bufp->re_nsub);
   fprintf (dest, "regs_alloc: %d\t", bufp->regs_allocated);
   fprintf (dest, "can_be_null: %d\n", bufp->can_be_null);
+
+#ifdef HAVE_REX
+  print_rex_pattern (dest, bufp->rex_result);
+#endif
   /* Perhaps we should print the translate table?  */
 }
 
