@@ -184,6 +184,14 @@ freeze_pattern (struct regexp_cache *searchbuf)
   searchbuf->busy = true;
 }
 
+DEFUN ("re-compile-pattern", Fre_compile_pattern, Sre_compile_pattern,
+       1, 1, 0,
+       doc: /* Return a lisp representation of PATTERN. */)
+  (Lisp_Object pattern)
+{
+  return Qnil;
+}
+
 /* Compile a regexp if necessary, but first check to see if there's one in
    the cache.
    PATTERN is the pattern to compile.
@@ -3499,6 +3507,7 @@ do not set the match data.  The proper way to use this variable
 is to bind it with `let' around a small expression.  */);
   Vinhibit_changing_match_data = Qnil;
 
+  defsubr (&Sre_compile_pattern);
   defsubr (&Slooking_at);
   defsubr (&Sposix_looking_at);
   defsubr (&Sstring_match);
