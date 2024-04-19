@@ -185,10 +185,39 @@ freeze_pattern (struct regexp_cache *searchbuf)
 }
 
 DEFUN ("re-compile-pattern", Fre_compile_pattern, Sre_compile_pattern,
-       1, 1, 0,
-       doc: /* Return a lisp representation of PATTERN. */)
-  (Lisp_Object pattern)
+       1, 2, 0, doc
+       : /* Return a lisp representation of PATTERN using posix behavior POSIX. */)
+(Lisp_Object pattern, Lisp_Object posix)
 {
+  CHECK_STRING (pattern);
+
+  const char *whitespace_regexp = STRINGP (Vsearch_spaces_regexp)
+				    ? SSDATA (Vsearch_spaces_regexp)
+				    : NULL;
+
+  /* This is so set_image_of_range_1 in regex-emacs.c can find the EQV
+     table.  */
+  set_char_table_extras (BVAR (current_buffer, case_canon_table), 2,
+			 BVAR (current_buffer, case_eqv_table));
+
+  Lisp_Object translate = (!NILP (Vcase_fold_search))
+			    ? BVAR (current_buffer, case_canon_table)
+			    : Qnil;
+
+  struct re_pattern_buffer bufp;
+  bufp.translate = translate;
+  bufp.multibyte = STRING_MULTIBYTE (pattern);
+  bufp.charset_unibyte = charset_unibyte;
+  bufp.buffer = NULL;
+  bufp.allocated = 0;
+
+  const char *err_msg
+    = re_compile_pattern (SSDATA (pattern), SBYTES (pattern),
+			  (!NILP (posix)), whitespace_regexp, &bufp);
+
+  if (err_msg)
+    xsignal1 (Qinvalid_regexp, build_string (err_msg));
+
   return Qnil;
 }
 
