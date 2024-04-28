@@ -263,7 +263,7 @@ BYTE8_STRING (int b, unsigned char *p)
   return 2;
 }
 
-
+/* TODO: consider how to integrate these into regex matching!!! */
 /* True iff BYTE starts a non-ASCII character in a multibyte form.  */
 INLINE bool
 LEADING_CODE_P (int byte)

@@ -4550,6 +4550,7 @@ re_match_2_internal (struct re_pattern_buffer *bufp,
 	    DEBUG_PRINT ("EXECUTING anychar.\n");
 
 	    PREFETCH ();
+	    /* NB: this is an example of char-by-char matching with multibyte! */
 	    buf_ch = RE_STRING_CHAR_AND_LENGTH (d, buf_charlen,
 						target_multibyte);
 	    buf_ch = TRANSLATE (buf_ch);
