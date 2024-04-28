@@ -216,7 +216,7 @@ CHAR_LEADING_CODE (int c)
 	  : c <= MAX_3_BYTE_CHAR ? 0xE0 | (c >> 12)
 	  : c <= MAX_4_BYTE_CHAR ? 0xF0 | (c >> 18)
 	  : c <= MAX_5_BYTE_CHAR ? 0xF8
-	  : 0xC0 | ((c >> 6) & 0x01));
+	  : 0xC0 | ((CHAR_TO_BYTE8(c) >> 6) & 0x01));
 }
 
 
