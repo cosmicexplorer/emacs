@@ -1,6 +1,6 @@
 ### @configure_input@
 
-# Copyright (C) 2017-2025 Free Software Foundation, Inc.
+# Copyright (C) 2017-2024 Free Software Foundation, Inc.
 
 # This file is part of GNU Emacs.
 
@@ -17,46 +17,22 @@
 # You should have received a copy of the GNU General Public License
 # along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
 
-PROGRAM = itree-tests
-PACKAGES = check
 top_srcdir = @top_srcdir@
 top_builddir = @top_builddir@
-CPPFLAGS += -I $(top_srcdir)/src
-CFLAGS += -O0 -g3 $(shell pkg-config --cflags $(PACKAGES))
-LDLIBS += $(shell pkg-config --libs $(PACKAGES)) -lm
-OBJECTS = itree-tests.o
-CC = gcc
 EMACS ?= $(top_builddir)/src/emacs
 MANUAL_TEST_SRC = $(top_srcdir)/test/manual
 PERF_TEST_SRC = $(MANUAL_TEST_SRC)/perf
-NOVERLAY_TEST_SRC = $(MANUAL_TEST_SRC)/noverlay
+REGEXP_TEST_SRC = $(MANUAL_TEST_SRC)/regexp
 
-.PHONY: all check clean distclean perf
+.PHONY: all perf
 
-all: check
-
-check: $(PROGRAM)
-	./check-sanitize.sh ./$(PROGRAM)
-
-emacs-compat.h: $(NOVERLAY_TEST_SRC)/emacs-compat.h
-	cp -v $< $@
+all: perf
 
 perf.el: $(PERF_TEST_SRC)/perf.el
 	cp -v $< $@
 
-overlay-perf.el: $(NOVERLAY_TEST_SRC)/overlay-perf.el
+regexp-perf.el: $(REGEXP_TEST_SRC)/regexp-perf.el
 	cp -v $< $@
 
-many-errors.py: $(NOVERLAY_TEST_SRC)/many-errors.py
-	cp -v $< $@
-
-itree-tests.o: emacs-compat.h $(top_srcdir)/src/itree.c $(top_srcdir)/src/itree.h
-
-perf: perf.el overlay-perf.el many-errors.py
-	-$(EMACS) -Q -l ./perf.el -l ./overlay-perf.el -f perf-run-batch
-
-clean:
-	rm -f -- $(OBJECTS) $(PROGRAM)
-
-distclean: clean
-	rm -f -- Makefile
+perf: perf.el regexp-perf.el
+	-$(EMACS) -Q -l ./perf.el -l ./regexp-perf.el -f perf-run-batch
