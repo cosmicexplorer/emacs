@@ -32,6 +32,7 @@
 #include "character.h"
 #include "buffer.h"
 #include "syntax.h"
+#include "charset.h"
 #include "category.h"
 #include "dispextern.h"
 
@@ -191,7 +192,7 @@ static ptrdiff_t re_match_2_internal (struct re_pattern_buffer *bufp,
 				     re_char *string1, ptrdiff_t size1,
 				     re_char *string2, ptrdiff_t size2,
 				     ptrdiff_t pos,
-				     struct re_registers *regs,
+				     struct regexp_match_info *info,
 				     ptrdiff_t stop);
 
 /* These are the command codes that appear in compiled regular
@@ -468,6 +469,8 @@ print_fastmap (FILE *dest, char *fastmap)
   bool was_a_range = false;
   int i = 0;
 
+  /* FIXME: unify "1 << BYTEWIDTH" and "FASTMAP_SIZE" defines (both are
+     the same value = 256). */
   while (i < (1 << BYTEWIDTH))
     {
       if (fastmap[i++])
@@ -3373,10 +3376,11 @@ re_set_registers (struct re_pattern_buffer *bufp, struct re_registers *regs,
 
 ptrdiff_t
 re_search (struct re_pattern_buffer *bufp, const char *string, ptrdiff_t size,
-	   ptrdiff_t startpos, ptrdiff_t range, struct re_registers *regs)
+	   ptrdiff_t startpos, ptrdiff_t range,
+	   struct regexp_match_info *info)
 {
   return re_search_2 (bufp, NULL, 0, string, size, startpos, range,
-		      regs, size);
+		      info, size);
 }
 
 /* Address of POS in the concatenation of virtual string. */
@@ -3408,7 +3412,7 @@ ptrdiff_t
 re_search_2 (struct re_pattern_buffer *bufp, const char *str1, ptrdiff_t size1,
 	     const char *str2, ptrdiff_t size2,
 	     ptrdiff_t startpos, ptrdiff_t range,
-	     struct re_registers *regs, ptrdiff_t stop)
+	     struct regexp_match_info *info, ptrdiff_t stop)
 {
   ptrdiff_t val;
   re_char *string1 = (re_char *) str1;
@@ -3577,7 +3581,7 @@ re_search_2 (struct re_pattern_buffer *bufp, const char *str1, ptrdiff_t size1,
 	return -1;
 
       val = re_match_2_internal (bufp, string1, size1, string2, size2,
-				 startpos, regs, stop);
+				 startpos, info, stop);
 
       if (val >= 0)
 	return startpos;
@@ -4047,15 +4051,18 @@ ptrdiff_t
 re_match_2 (struct re_pattern_buffer *bufp,
 	    char const *string1, ptrdiff_t size1,
 	    char const *string2, ptrdiff_t size2,
-	    ptrdiff_t pos, struct re_registers *regs, ptrdiff_t stop)
+	    ptrdiff_t pos, struct regexp_match_info *info,
+	    ptrdiff_t stop)
 {
   ptrdiff_t result;
+  eassert (info != NULL);
 
-  RE_SETUP_SYNTAX_TABLE_FOR_OBJECT (re_match_object, pos);
+  if (!info->match)
+    RE_SETUP_SYNTAX_TABLE_FOR_OBJECT (re_match_object, pos);
 
   result = re_match_2_internal (bufp, (re_char *) string1, size1,
 				(re_char *) string2, size2,
-				pos, regs, stop);
+				pos, info, stop);
   return result;
 }
 
@@ -4072,11 +4079,14 @@ static ptrdiff_t
 re_match_2_internal (struct re_pattern_buffer *bufp,
 		     re_char *string1, ptrdiff_t size1,
 		     re_char *string2, ptrdiff_t size2,
-		     ptrdiff_t pos, struct re_registers *regs, ptrdiff_t stop)
+		     ptrdiff_t pos, struct regexp_match_info *info,
+		     ptrdiff_t stop)
 {
   eassume (0 <= size1);
   eassume (0 <= size2);
   eassume (0 <= pos && pos <= stop && stop <= size1 + size2);
+  eassert (info != NULL);
+  struct re_registers *regs = info->regs;
 
   /* General temporaries.  */
   int mcnt;
@@ -4350,6 +4360,13 @@ re_match_2_internal (struct re_pattern_buffer *bufp,
 	  /* If caller wants register contents data back, do it.  */
 	  if (regs)
 	    {
+	      if (info->match)
+		{
+		  eassert (bufp->regs_allocated == REGS_FIXED);
+		  eassert (num_regs <= info->regs->num_regs);
+		  eassert (regs == info->regs);
+		}
+
 	      /* Have the register data arrays been allocated?	*/
 	      if (bufp->regs_allocated == REGS_UNALLOCATED)
 		{ /* No.  So allocate them with malloc.  */
@@ -4398,10 +4415,17 @@ re_match_2_internal (struct re_pattern_buffer *bufp,
 		    }
 		}
 
-	      /* If the regs structure we return has more elements than
-		 were in the pattern, set the extra elements to -1.  */
-	      for (ptrdiff_t reg = num_regs; reg < regs->num_regs; reg++)
-		regs->start[reg] = regs->end[reg] = -1;
+	      if (info->match)
+		/* If the match info is a match object, don't
+		   overwrite anything, and just reduce the matched
+		   registers to the number of groups actually
+		   matched. */
+		info->match->initialized_regs = num_regs;
+	      else
+		/* If the regs structure we return has more elements than
+		   were in the pattern, set the extra elements to -1.  */
+		for (ptrdiff_t reg = num_regs; reg < regs->num_regs; reg++)
+		  regs->start[reg] = regs->end[reg] = -1;
 	    }
 
 	  DEBUG_PRINT ("%td failure points pushed, %td popped (%td remain).\n",
@@ -5352,4 +5376,721 @@ re_compile_pattern (const char *pattern, ptrdiff_t length,
   if (!ret)
     return NULL;
   return re_error_msgid[ret];
+}
+
+DEFUN ("make-regexp", Fmake_regexp, Smake_regexp, 1, 3, 0,
+       doc: /* Compile a regexp object from string PATTERN.
+
+POSIX is non-nil if we want full backtracking (POSIX style) for
+this pattern.
+TRANSLATE is a translation table for ignoring case, or t to look up from
+the current buffer at compile time if `case-fold-search' is on, or nil
+for none.
+
+The value of `search-spaces-regexp' is looked up in order to translate
+literal space characters in PATTERN. */)
+  (Lisp_Object pattern, Lisp_Object posix, Lisp_Object translate)
+{
+  const char *whitespace_regexp = NULL;
+  char *val = NULL;
+  bool is_posix = !NILP (posix);
+  struct Lisp_Regexp *p = NULL;
+  struct re_pattern_buffer *bufp = NULL;
+
+  if (!NILP (Vsearch_spaces_regexp))
+    {
+      CHECK_STRING (Vsearch_spaces_regexp);
+      whitespace_regexp = SSDATA (Vsearch_spaces_regexp);
+    }
+
+  if (EQ(translate, Qt))
+    translate = (!NILP (Vcase_fold_search)
+		 ? BVAR (current_buffer, case_canon_table)
+		 : Qnil);
+
+  CHECK_STRING (pattern);
+
+  bufp = xzalloc (sizeof (*bufp));
+
+  bufp->fastmap = xzalloc (FASTMAP_SIZE);
+  bufp->translate = translate;
+  bufp->multibyte = STRING_MULTIBYTE (pattern);
+  bufp->charset_unibyte = charset_unibyte;
+
+  val = (char *) re_compile_pattern (SSDATA (pattern), SBYTES (pattern),
+				     is_posix, whitespace_regexp, bufp);
+
+  if (val)
+    {
+      xfree (bufp->buffer);
+      xfree (bufp->fastmap);
+      xfree (bufp);
+      xsignal1 (Qinvalid_regexp, build_string (val));
+    }
+
+  p = ALLOCATE_PSEUDOVECTOR (struct Lisp_Regexp, default_match_target,
+			     PVEC_REGEXP);
+  p->pattern = pattern;
+  p->whitespace_regexp = Vsearch_spaces_regexp;
+  /* If the compiled pattern hard codes some of the contents of the
+     syntax-table, it can only be reused with *this* syntax table.  */
+  p->syntax_table = bufp->used_syntax ? BVAR (current_buffer, syntax_table) : Qt;
+  p->posix = is_posix;
+
+  /* Allocate the match data implicitly stored in this regexp. */
+  p->default_match_target = allocate_match (bufp->re_nsub);
+  /* Tell regex matching routines they do not need to allocate any
+     further memory, since we have allocated it here in advance. */
+  bufp->regs_allocated = REGS_FIXED;
+  /* Fully initialize all fields. */
+  p->buffer = bufp;
+
+  return make_lisp_ptr (p, Lisp_Vectorlike);
+}
+
+DEFUN ("regexpp", Fregexpp, Sregexpp, 1, 1, 0,
+       doc: /* Say whether OBJECT is a compiled regexp object. */)
+  (Lisp_Object object)
+{
+  return REGEXP_P (object)? Qt: Qnil;
+}
+
+DEFUN ("regexp-get-pattern-string", Fregexp_get_pattern_string,
+       Sregexp_get_pattern_string, 1, 1, 0,
+       doc: /* Get the original pattern used to compile REGEXP. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return XREGEXP (regexp)->pattern;
+}
+
+DEFUN ("regexp-posix-p", Fregexp_posix_p, Sregexp_posix_p, 1, 1, 0,
+       doc: /* Get whether REGEXP was compiled with posix behavior. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  if (XREGEXP (regexp)->posix)
+    return Qt;
+  return Qnil;
+}
+
+DEFUN ("regexp-get-whitespace-pattern", Fregexp_get_whitespace_pattern,
+       Sregexp_get_whitespace_pattern, 1, 1, 0,
+       doc: /* Get the value of `search-spaces-regexp' used to compile REGEXP. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return XREGEXP (regexp)->whitespace_regexp;
+}
+
+DEFUN ("regexp-get-translation-table", Fregexp_get_translation_table,
+       Sregexp_get_translation_table, 1, 1, 0,
+       doc: /* Get the translation table for case folding used to compile REGEXP. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return XREGEXP (regexp)->buffer->translate;
+}
+
+DEFUN ("regexp-get-num-subexps", Fregexp_get_num_subexps,
+       Sregexp_get_num_subexps, 1, 1, 0,
+       doc: /* Get the number of capturing groups (sub-expressions) for REGEXP. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return make_fixnum (XREGEXP (regexp)->buffer->re_nsub);
+}
+
+DEFUN ("regexp-get-default-match-data", Fregexp_get_default_match_data,
+       Sregexp_get_default_match_data, 1, 1, 0,
+       doc: /* Retrieve the internal match object from REGEXP.
+
+This match object was created with `make-match-data' upon construction
+of REGEXP with `make-regexp', and records the most recent match applied
+to REGEXP unless an explicit match object was provided via an
+'inhibit-modify' arg to a regexp search method. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return XREGEXP (regexp)->default_match_target;
+}
+
+static void
+reallocate_match_registers (ptrdiff_t re_nsub, struct Lisp_Match *m)
+{
+  ptrdiff_t needed_regs = re_nsub + 1;
+  eassert (needed_regs > 0);
+  struct re_registers *regs = m->regs;
+  /* If we need more elements than were already allocated, reallocate them.
+     If we need fewer, just leave it alone. */
+  if (regs->num_regs < needed_regs)
+    {
+      regs->start =
+	xnrealloc (regs->start, needed_regs, sizeof *regs->start);
+      regs->end =
+	xnrealloc (regs->end, needed_regs, sizeof *regs->end);
+
+      /* Clear any register data past what the current regexp can read. */
+      for (ptrdiff_t i = regs->num_regs; i < needed_regs; ++i)
+	regs->start[i] = regs->end[i] = RE_MATCH_EXP_UNSET;
+
+      /* Ensure we rewrite the allocation length. */
+      regs->num_regs = needed_regs;
+    }
+}
+
+DEFUN ("regexp-set-default-match-data", Fregexp_set_default_match_data,
+       Sregexp_set_default_match_data, 2, 2, 0,
+       doc: /* Overwrite the internal match object for REGEXP with MATCH.
+
+MATCH will be reallocated as necessary to contain enough match
+registers for the sub-expressions in REGEXP. */)
+  (Lisp_Object regexp, Lisp_Object match)
+{
+  CHECK_REGEXP (regexp);
+  CHECK_MATCH (match);
+  struct Lisp_Regexp *r = XREGEXP (regexp);
+  struct re_pattern_buffer *bufp = r->buffer;
+
+  /* This should always be true for any compiled regexp. */
+  eassert (bufp->regs_allocated == REGS_FIXED);
+
+  /* Overwrite the default target. */
+  r->default_match_target = match;
+  /* Return nil */
+  return Qnil;
+}
+
+Lisp_Object
+allocate_match (ptrdiff_t re_nsub)
+{
+  eassert (re_nsub >= 0);
+  /* Number of match registers always includes 0 for whole match. */
+  ptrdiff_t num_regs = re_nsub + 1;
+
+  struct re_registers *regs = xzalloc (sizeof (*regs));
+  regs->num_regs = num_regs;
+  regs->start = xnmalloc (num_regs, sizeof (*regs->start));
+  regs->end = xnmalloc (num_regs, sizeof (*regs->end));
+
+  /* Construct lisp match object. */
+  struct Lisp_Match *m = ALLOCATE_PSEUDOVECTOR
+    (struct Lisp_Match, haystack, PVEC_MATCH);
+
+  /* Initialize the "haystack" linked match target to nil before any
+     searches are performed against this match object. */
+  m->haystack = Qnil;
+  /* Initialize all values to -1 for "unset". */
+  for (ptrdiff_t reg_index = 0; reg_index < num_regs; ++reg_index)
+    regs->start[reg_index] = regs->end[reg_index] = RE_MATCH_EXP_UNSET;
+  /* No successful match has occurred yet, so nothing is initialized. */
+  m->initialized_regs = 0;
+
+  m->regs = regs;
+  return make_lisp_ptr (m, Lisp_Vectorlike);
+}
+
+static ptrdiff_t
+extract_re_nsub_arg (Lisp_Object regexp_or_num_registers)
+{
+  ptrdiff_t re_nsub;
+  if (NILP (regexp_or_num_registers))
+    re_nsub = 0;
+  else if (REGEXP_P (regexp_or_num_registers))
+    re_nsub = XREGEXP (regexp_or_num_registers)->buffer->re_nsub;
+  else
+    {
+      CHECK_FIXNAT (regexp_or_num_registers);
+      EMACS_INT n = XFIXNUM (regexp_or_num_registers);
+      if (n == 0)
+	error ("match data must allocate at least 1 register");
+      re_nsub = (ptrdiff_t) n - 1;
+    }
+  return re_nsub;
+}
+
+DEFUN ("make-match-data", Fmake_match_data, Smake_match_data, 0, 1, 0,
+       doc: /* Allocate match data for REGEXP-OR-NUM-REGISTERS.
+
+If REGEXP-OR-NUM-REGISTERS is a compiled regexp object, the result will
+allocate as many match registers as its sub-expressions, plus 1 for the
+0th group. If REGEXP-OR-NUM-REGISTERS is nil, then 1 register will be
+allocated. Otherwise, REGEXP-OR-NUM-REGISTERS must be a fixnum > 0. */)
+  (Lisp_Object regexp_or_num_registers)
+{
+  return allocate_match (extract_re_nsub_arg (regexp_or_num_registers));
+}
+
+DEFUN ("reallocate-match-data", Freallocate_match_data, Sreallocate_match_data,
+       2, 2, 0,
+       doc: /* Allocate REGEXP-OR-NUM-REGISTERS registers into MATCH.
+
+REGEXP-OR-NUM-REGISTERS is interpreted as in `make-match-data'.
+
+Returns MATCH. */)
+  (Lisp_Object match, Lisp_Object regexp_or_num_registers)
+{
+  CHECK_MATCH (match);
+
+  struct Lisp_Match *m = XMATCH (match);
+  ptrdiff_t re_nsub = extract_re_nsub_arg (regexp_or_num_registers);
+
+  /* Reallocate match register buffers as needed. */
+  reallocate_match_registers (re_nsub, m);
+
+  return match;
+}
+
+static void
+clear_match_data (struct Lisp_Match *m)
+{
+  /* Clear all registers. */
+  m->initialized_regs = 0;
+  /* Unset the last-matched haystack. */
+  m->haystack = Qnil;
+}
+
+static struct Lisp_Match *
+extract_regexp_or_match (Lisp_Object regexp_or_match)
+{
+  if (REGEXP_P (regexp_or_match))
+    return XMATCH(XREGEXP (regexp_or_match)->default_match_target);
+
+  CHECK_MATCH (regexp_or_match);
+  return XMATCH (regexp_or_match);
+}
+
+DEFUN ("clear-match-data", Fclear_match_data, Sclear_match_data, 1, 1, 0,
+       doc: /* Unset all match data for REGEXP-OR-MATCH.
+
+If REGEXP-OR-MATCH was previously used to search against, its match
+data will be reset to the default value. */)
+  (Lisp_Object regexp_or_match)
+{
+  clear_match_data (extract_regexp_or_match (regexp_or_match));
+  return Qnil;
+}
+
+DEFUN ("matchp", Fmatchp, Smatchp, 1, 1, 0,
+       doc: /* Say whether OBJECT is an allocated regexp match object. */)
+  (Lisp_Object object)
+{
+  return MATCH_P (object)? Qt: Qnil;
+}
+
+DEFUN ("match-get-haystack", Fmatch_get_haystack, Smatch_get_haystack,
+       1, 1, 0,
+       doc: /* Get the last search target from REGEXP-OR-MATCH.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+If this match object has not yet been used in a search, this will be nil.
+If a search was initiated but failed, this object is unchanged. */)
+  (Lisp_Object regexp_or_match)
+{
+  return extract_regexp_or_match (regexp_or_match)->haystack;
+}
+
+DEFUN ("match-set-haystack", Fmatch_set_haystack, Smatch_set_haystack,
+       2, 2, 0,
+       doc: /* Set the last search target HAYSTACK into REGEXP-OR-MATCH.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+Returns the match object which was modified. */)
+  (Lisp_Object regexp_or_match, Lisp_Object haystack)
+{
+  struct Lisp_Match *match = extract_regexp_or_match (regexp_or_match);
+  match->haystack = haystack;
+  Lisp_Object ret;
+  XSETMATCH (ret, match);
+  return ret;
+}
+
+DEFUN ("match-num-registers", Fmatch_num_registers,
+       Smatch_num_registers, 1, 1, 0,
+       doc: /* Get the number of initialized match registers for
+REGEXP-OR-MATCH.
+
+This match object will be able to store match data for up to this
+number of groups, including the 0th group for the entire match. */)
+  (Lisp_Object regexp_or_match)
+{
+  struct Lisp_Match *match =
+    extract_regexp_or_match (regexp_or_match);
+  return make_fixed_natnum (match->initialized_regs);
+}
+
+DEFUN ("match-allocated-registers", Fmatch_allocated_registers,
+       Smatch_allocated_registers, 1, 1, 0,
+       doc: /* Get the number of allocated registers for REGEXP-OR-MATCH.
+
+If this value is less than the result of
+`regexp-get-num-subexps' + 1 for some compiled regexp, then
+`reallocate-match-data' will have to reallocate.
+
+This value will always be at least as large as the result of
+`match-num-registers'. */)
+  (Lisp_Object regexp_or_match)
+{
+  struct Lisp_Match *match =
+    extract_regexp_or_match (regexp_or_match);
+  return make_fixed_natnum (match->regs->num_regs);
+}
+
+static ptrdiff_t
+extract_group_index (Lisp_Object group)
+{
+  if (NILP (group))
+    return 0;
+
+  CHECK_FIXNAT (group);
+  return XFIXNAT (group);
+}
+
+static ptrdiff_t
+index_into_registers (struct Lisp_Match *m, ptrdiff_t group_index,
+		      bool beginningp)
+{
+  if (group_index >= m->initialized_regs)
+    error ("group %ld was out of bounds for match data with %ld registers",
+	   group_index, m->initialized_regs);
+  return ((beginningp)
+	  ? m->regs->start[group_index]
+	  : m->regs->end[group_index]);
+}
+
+DEFUN ("match-register-start", Fmatch_register_start, Smatch_register_start,
+       1, 2, 0,
+       doc: /* Return position of start of text matched by last search.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+GROUP, a number, specifies the parenthesized subexpression in the last
+  regexp for which to return the start position.
+Value is nil if GROUPth subexpression didn't match, or there were fewer
+  than GROUP subexpressions.
+GROUP zero or nil means the entire text matched by the whole regexp or whole
+  string.
+
+Return value is undefined if the last search failed, as a failed search
+does not update match data. */)
+  (Lisp_Object regexp_or_match, Lisp_Object group)
+{
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  ptrdiff_t group_index = extract_group_index (group);
+
+  ptrdiff_t input_index = index_into_registers (m, group_index, true);
+
+  if (input_index < 0)
+    return Qnil;
+  return make_fixed_natnum (input_index);
+}
+
+DEFUN ("match-register-end", Fmatch_register_end, Smatch_register_end,
+       1, 2, 0,
+       doc: /* Return position of end of text matched by last search.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+GROUP, a number, specifies the parenthesized subexpression in the last
+  regexp for which to return the end position.
+Value is nil if GROUPth subexpression didn't match, or there were fewer
+  than GROUP subexpressions.
+GROUP zero or nil means the entire text matched by the whole regexp or whole
+  string.
+
+Return value is undefined if the last search failed, as a failed search
+does not update match data. */)
+  (Lisp_Object regexp_or_match, Lisp_Object group)
+{
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  ptrdiff_t group_index = extract_group_index (group);
+
+  ptrdiff_t input_index = index_into_registers (m, group_index, false);
+
+  if (input_index < 0)
+    return Qnil;
+  return make_fixed_natnum (input_index);
+}
+
+static ptrdiff_t
+extract_required_vector_length (struct Lisp_Match *m, Lisp_Object max_group)
+{
+  if (NILP (max_group))
+    return m->initialized_regs;
+
+  CHECK_FIXNAT (max_group);
+  ptrdiff_t max_group_index = XFIXNAT (max_group);
+
+  if (max_group_index >= m->initialized_regs)
+    error ("max group %ld was out of bounds for match data with %ld registers",
+	   max_group_index, m->initialized_regs);
+
+  return max_group_index + 1;
+}
+
+static Lisp_Object
+ensure_match_result_vector (ptrdiff_t result_length, Lisp_Object out)
+{
+  if (NILP (out))
+    return make_vector (result_length, Qnil);
+
+  CHECK_VECTOR (out);
+  if (ASIZE (out) < result_length)
+    error ("needed at least %ld entries in out vector, but got %ld",
+	   result_length, ASIZE (out));
+  return out;
+}
+
+DEFUN ("match-allocate-results", Fmatch_allocate_results,
+       Smatch_allocate_results, 1, 2, 0,
+       doc: /* Allocate a vector in OUT large enough for REGEXP-OR-MATCH.
+
+The result will be large enough to use in e.g. `match-extract-starts'
+without having to allocate a new vector.
+
+Returns OUT. */)
+  (Lisp_Object regexp_or_match, Lisp_Object out)
+{
+  ptrdiff_t result_length;
+  if (REGEXP_P (regexp_or_match))
+    result_length = 1 + XREGEXP (regexp_or_match)->buffer->re_nsub;
+  else
+    {
+      CHECK_MATCH (regexp_or_match);
+      result_length = XMATCH (regexp_or_match)->regs->num_regs;
+    }
+  out = ensure_match_result_vector (result_length, out);
+
+  return out;
+}
+
+static void
+write_positions_to_vector (ptrdiff_t result_length, ptrdiff_t *positions,
+			   Lisp_Object out)
+{
+  for (ptrdiff_t i = 0; i < result_length; ++i)
+    {
+      ptrdiff_t cur_pos = positions[i];
+      if (cur_pos < 0)
+	ASET (out, i, Qnil);
+      else
+	ASET (out, i, make_fixed_natnum (cur_pos));
+    }
+}
+
+DEFUN ("match-extract-starts", Fmatch_extract_starts, Smatch_extract_starts,
+       1, 3, 0,
+       doc: /* Write match starts to a vector.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+OUT may be a preallocated vector with `make-vector', which must have at
+least MAX-GROUP + 1 elements. If nil, a new vector is created.
+
+MAX-GROUP, a number, specifies the maximum match group index to
+write to the output. If nil, write all matches.
+
+Returns OUT. */)
+  (Lisp_Object regexp_or_match, Lisp_Object out, Lisp_Object max_group)
+{
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  ptrdiff_t result_length =
+    extract_required_vector_length (m, max_group);
+  out = ensure_match_result_vector (result_length, out);
+
+  write_positions_to_vector (result_length, m->regs->start, out);
+
+  return out;
+}
+
+DEFUN ("match-extract-ends", Fmatch_extract_ends, Smatch_extract_ends,
+       1, 3, 0,
+       doc: /* Write match ends to a vector.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method.
+
+OUT may be a preallocated vector with `make-vector', which must have at
+least MAX-GROUP + 1 elements. If nil, a new vector is created.
+
+MAX-GROUP, a number, specifies the maximum match group index to
+write to the output. If nil, write all matches.
+
+Returns OUT. */)
+  (Lisp_Object regexp_or_match, Lisp_Object out, Lisp_Object max_group)
+{
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  ptrdiff_t result_length =
+    extract_required_vector_length (m, max_group);
+  out = ensure_match_result_vector (result_length, out);
+
+  write_positions_to_vector (result_length, m->regs->end, out);
+
+  return out;
+}
+
+static void
+reset_all_marks (Lisp_Object out)
+{
+  CHECK_VECTOR (out);
+  for (ptrdiff_t i = 0; i < ASIZE (out); ++i)
+    {
+      Lisp_Object maybe_mark = AREF (out, i);
+      if (MARKERP (maybe_mark))
+	{
+	  unchain_marker (XMARKER (maybe_mark));
+	  ASET (out, i, Qnil);
+	}
+    }
+}
+
+static void
+write_marks_to_vector (ptrdiff_t result_length, ptrdiff_t *positions,
+		       Lisp_Object buffer, Lisp_Object out)
+{
+  for (ptrdiff_t i = 0; i < result_length; ++i)
+    {
+      ptrdiff_t cur_pos = positions[i];
+      if (cur_pos < 0)
+	ASET (out, i, Qnil);
+      else
+	{
+	  Lisp_Object new_marker = Fmake_marker ();
+	  Fset_marker (new_marker,
+		       make_fixed_natnum (cur_pos),
+		       buffer);
+	  ASET (out, i, new_marker);
+	}
+    }
+}
+
+DEFUN ("match-extract-start-marks", Fmatch_extract_start_marks,
+       Smatch_extract_start_marks, 1, 4, 0,
+       doc: /* Write match starts to a vector.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method. The
+last search must have been performed against a buffer.
+
+OUT may be a preallocated vector with `make-vector', which must have at
+least MAX-GROUP + 1 elements. If nil, a new vector is created.
+
+MAX-GROUP, a number, specifies the maximum match group index to
+write to the output. If nil, write all matches.
+
+If RESEAT is non-nil, any previous markers on OUT will be modified to
+point to nowhere.
+
+Returns OUT. */)
+  (Lisp_Object regexp_or_match, Lisp_Object out, Lisp_Object max_group,
+   Lisp_Object reseat)
+{
+  if (!NILP (reseat))
+    {
+      if (!EQ (reseat, Qt))
+	error ("RESEAT must be t or nil");
+      reset_all_marks (out);
+    }
+
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  Lisp_Object buffer = m->haystack;
+  CHECK_BUFFER (buffer);
+
+  ptrdiff_t result_length =
+    extract_required_vector_length (m, max_group);
+  out = ensure_match_result_vector (result_length, out);
+
+  write_marks_to_vector (result_length, m->regs->start, buffer, out);
+
+  return out;
+}
+
+DEFUN ("match-extract-end-marks", Fmatch_extract_end_marks,
+       Smatch_extract_end_marks, 1, 4, 0,
+       doc: /* Write match ends to a vector.
+
+REGEXP-OR-MATCH is either a compiled regexp object which was last
+searched against without providing a match object via 'inhibit-modify',
+or a match object provided via 'inhibit-modify' to a search method. The
+last search must have been performed against a buffer.
+
+OUT may be a preallocated vector with `make-vector', which must have at
+least MAX-GROUP + 1 elements. If nil, a new vector is created.
+
+MAX-GROUP, a number, specifies the maximum match group index to
+write to the output. If nil, write all matches.
+
+If RESEAT is non-nil, any previous markers on OUT will be modified to
+point to nowhere.
+
+Returns OUT. */)
+  (Lisp_Object regexp_or_match, Lisp_Object out, Lisp_Object max_group,
+   Lisp_Object reseat)
+{
+  if (!NILP (reseat))
+    {
+      if (!EQ (reseat, Qt))
+	error ("RESEAT must be t or nil");
+      reset_all_marks (out);
+    }
+
+  struct Lisp_Match *m = extract_regexp_or_match (regexp_or_match);
+  Lisp_Object buffer = m->haystack;
+  CHECK_BUFFER (buffer);
+
+  ptrdiff_t result_length =
+    extract_required_vector_length (m, max_group);
+  out = ensure_match_result_vector (result_length, out);
+
+  write_marks_to_vector (result_length, m->regs->end, buffer, out);
+
+  return out;
+}
+
+void syms_of_regexp (void)
+{
+  defsubr (&Smake_regexp);
+  defsubr (&Sregexpp);
+  defsubr (&Sregexp_get_pattern_string);
+  defsubr (&Sregexp_posix_p);
+  defsubr (&Sregexp_get_whitespace_pattern);
+  defsubr (&Sregexp_get_translation_table);
+  defsubr (&Sregexp_get_num_subexps);
+  defsubr (&Sregexp_get_default_match_data);
+  defsubr (&Sregexp_set_default_match_data);
+  defsubr (&Smake_match_data);
+  defsubr (&Sreallocate_match_data);
+  defsubr (&Sclear_match_data);
+  defsubr (&Smatchp);
+  defsubr (&Smatch_get_haystack);
+  defsubr (&Smatch_set_haystack);
+  defsubr (&Smatch_num_registers);
+  defsubr (&Smatch_allocated_registers);
+  defsubr (&Smatch_register_start);
+  defsubr (&Smatch_register_end);
+  defsubr (&Smatch_allocate_results);
+  defsubr (&Smatch_extract_starts);
+  defsubr (&Smatch_extract_ends);
+  defsubr (&Smatch_extract_start_marks);
+  defsubr (&Smatch_extract_end_marks);
+
+  /* New symbols necessary for cl-type checking. */
+  DEFSYM (Qregexp, "regexp");
+  DEFSYM (Qregexpp, "regexpp");
+  DEFSYM (Qmatch, "match");
+  DEFSYM (Qmatchp, "matchp");
 }

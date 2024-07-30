@@ -290,6 +290,10 @@ a fixed set of types.  */)
           return Qsqlite;
         case PVEC_SUB_CHAR_TABLE:
           return Qsub_char_table;
+	case PVEC_REGEXP:
+	  return Qregexp;
+	case PVEC_MATCH:
+	  return Qmatch;
         /* "Impossible" cases.  */
 	case PVEC_MISC_PTR:
         case PVEC_OTHER:

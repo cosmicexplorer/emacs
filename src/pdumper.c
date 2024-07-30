@@ -1528,6 +1528,36 @@ dump_emacs_reloc_copy_from_dump (struct dump_context *ctx, dump_off dump_offset,
                     dump_off_to_lisp (size)));
 }
 
+static void
+dump_remember_fixup_ptr_raw (struct dump_context *ctx,
+			     dump_off dump_offset,
+			     dump_off new_dump_offset);
+
+/* Add a byte range relocation that copies arbitrary bytes from the dump.
+
+   When the dump is loaded, Emacs copies SIZE bytes into DUMP_OFFSET from
+   dump. Dump bytes are loaded from SOURCE. */
+static void
+dump_cold_bytes (struct dump_context *ctx, dump_off dump_offset,
+		 void* source, dump_off size)
+{
+  eassert (size >= 0);
+  eassert (size < (1 << EMACS_RELOC_LENGTH_BITS));
+
+  if (!ctx->flags.dump_object_contents)
+    return;
+
+  if (size == 0)
+    {
+      eassert (source == NULL);
+      return;
+    }
+  eassert (source != NULL);
+
+  dump_remember_fixup_ptr_raw (ctx, dump_offset, ctx->offset);
+  dump_write (ctx, source, size);
+}
+
 /* Add an Emacs relocation that sets values to arbitrary bytes.
 
    When the dump is loaded, Emacs copies SIZE bytes from the
@@ -2126,6 +2156,121 @@ dump_marker (struct dump_context *ctx, const struct Lisp_Marker *marker)
 }
 
 static dump_off
+dump_re_pattern_buffer (struct dump_context *ctx, const struct re_pattern_buffer *bufp)
+{
+#if CHECK_STRUCTS && !defined (HASH_re_pattern_buffer_36714DF24A)
+# error "re_pattern_buffer changed. See CHECK_STRUCTS comment in config.h."
+#endif
+  struct re_pattern_buffer out;
+  dump_object_start (ctx, &out, sizeof (out));
+  if (bufp->buffer)
+    dump_field_fixup_later (ctx, &out, bufp, &bufp->buffer);
+  DUMP_FIELD_COPY (&out, bufp, allocated);
+  DUMP_FIELD_COPY (&out, bufp, used);
+  DUMP_FIELD_COPY (&out, bufp, charset_unibyte);
+  if (bufp->fastmap)
+    dump_field_fixup_later (ctx, &out, bufp, &bufp->fastmap);
+  dump_field_lv (ctx, &out, bufp, &bufp->translate, WEIGHT_NORMAL);
+  DUMP_FIELD_COPY (&out, bufp, re_nsub);
+  DUMP_FIELD_COPY (&out, bufp, can_be_null);
+  DUMP_FIELD_COPY (&out, bufp, regs_allocated);
+  DUMP_FIELD_COPY (&out, bufp, fastmap_accurate);
+  DUMP_FIELD_COPY (&out, bufp, used_syntax);
+  DUMP_FIELD_COPY (&out, bufp, multibyte);
+  DUMP_FIELD_COPY (&out, bufp, target_multibyte);
+  dump_off offset = dump_object_finish (ctx, &out, sizeof (out));
+  if (bufp->buffer)
+    {
+      eassert (bufp->allocated > 0);
+      if (bufp->allocated > DUMP_OFF_MAX - 1)
+	error ("regex pattern buffer too large");
+      dump_off total_size = ptrdiff_t_to_dump_off (bufp->allocated);
+      eassert (total_size > 0);
+      dump_cold_bytes
+	(ctx,
+	 offset + dump_offsetof (struct re_pattern_buffer, buffer),
+	 bufp->buffer,
+	 total_size);
+    }
+  if (bufp->fastmap)
+    {
+      eassert (FASTMAP_SIZE <= DUMP_OFF_MAX - 1);
+      dump_off fastmap_size = FASTMAP_SIZE;
+      dump_cold_bytes
+	(ctx,
+	 offset + dump_offsetof (struct re_pattern_buffer, fastmap),
+	 bufp->fastmap,
+	 fastmap_size);
+    }
+  return offset;
+}
+
+static dump_off
+dump_re_registers (struct dump_context *ctx, const struct re_registers *regs)
+{
+#if CHECK_STRUCTS && !defined (HASH_re_registers_B4A76DA5D5)
+# error "re_registers changed. See CHECK_STRUCTS comment in config.h."
+#endif
+  struct re_registers out;
+  dump_object_start (ctx, &out, sizeof (out));
+  eassert (regs->num_regs > 0);
+  eassert (regs->start);
+  eassert (regs->end);
+  DUMP_FIELD_COPY (&out, regs, num_regs);
+  dump_field_fixup_later (ctx, &out, regs, &regs->start);
+  dump_field_fixup_later (ctx, &out, regs, &regs->end);
+  dump_off offset = dump_object_finish (ctx, &out, sizeof (out));
+  dump_off total_size = ptrdiff_t_to_dump_off (regs->num_regs * sizeof (ptrdiff_t));
+  eassert (total_size > 0);
+  dump_cold_bytes
+    (ctx,
+     offset + dump_offsetof (struct re_registers, start),
+     regs->start,
+     total_size);
+  dump_cold_bytes
+    (ctx,
+     offset + dump_offsetof (struct re_registers, end),
+     regs->end,
+     total_size);
+  return offset;
+}
+
+static dump_off
+dump_match (struct dump_context *ctx, const struct Lisp_Match *match)
+{
+#if CHECK_STRUCTS && !defined (HASH_Lisp_Match_EE9D54EA09)
+# error "Lisp_Match changed. See CHECK_STRUCTS comment in config.h."
+#endif
+  START_DUMP_PVEC (ctx, &match->header, struct Lisp_Match, out);
+  dump_pseudovector_lisp_fields (ctx, &out->header, &match->header);
+  dump_field_fixup_later (ctx, &out, match, &match->regs);
+  dump_off offset = finish_dump_pvec (ctx, &out->header);
+  dump_remember_fixup_ptr_raw
+    (ctx,
+     offset + dump_offsetof (struct Lisp_Match, regs),
+     dump_re_registers (ctx, match->regs));
+  return offset;
+}
+
+static dump_off
+dump_regexp (struct dump_context *ctx, const struct Lisp_Regexp *regexp)
+{
+#if CHECK_STRUCTS && !defined (HASH_Lisp_Regexp_29DF51A9AC)
+# error "Lisp_Regexp changed. See CHECK_STRUCTS comment in config.h."
+#endif
+  START_DUMP_PVEC (ctx, &regexp->header, struct Lisp_Regexp, out);
+  dump_pseudovector_lisp_fields (ctx, &out->header, &regexp->header);
+  DUMP_FIELD_COPY (out, regexp, posix);
+  dump_field_fixup_later (ctx, &out, regexp, &regexp->buffer);
+  dump_off offset = finish_dump_pvec (ctx, &out->header);
+  dump_remember_fixup_ptr_raw
+    (ctx,
+     offset + dump_offsetof (struct Lisp_Regexp, buffer),
+     dump_re_pattern_buffer (ctx, regexp->buffer));
+  return offset;
+}
+
+static dump_off
 dump_interval_node (struct dump_context *ctx, struct itree_node *node)
 {
 #if CHECK_STRUCTS && !defined (HASH_itree_node_03626AFCA9)
@@ -2135,6 +2280,7 @@ dump_interval_node (struct dump_context *ctx, struct itree_node *node)
   dump_object_start (ctx, &out, sizeof (out));
   if (node->parent)
     dump_field_fixup_later (ctx, &out, node, &node->parent);
+  /* FIXME: should these both be &node->{left,right} instead of &node->parent? */
   if (node->left)
     dump_field_fixup_later (ctx, &out, node, &node->left);
   if (node->right)
@@ -3065,7 +3211,7 @@ dump_vectorlike (struct dump_context *ctx,
                  Lisp_Object lv,
                  dump_off offset)
 {
-#if CHECK_STRUCTS && !defined HASH_pvec_type_99104541E2
+#if CHECK_STRUCTS && !defined HASH_pvec_type_A379ED4BDA
 # error "pvec_type changed. See CHECK_STRUCTS comment in config.h."
 #endif
   const struct Lisp_Vector *v = XVECTOR (lv);
@@ -3127,6 +3273,10 @@ dump_vectorlike (struct dump_context *ctx,
 #ifdef HAVE_TREE_SITTER
       return dump_treesit_compiled_query (ctx, XTS_COMPILED_QUERY (lv));
 #endif
+    case PVEC_REGEXP:
+      return dump_regexp (ctx, XREGEXP (lv));
+    case PVEC_MATCH:
+      return dump_match (ctx, XMATCH (lv));
     case PVEC_WINDOW_CONFIGURATION:
     case PVEC_OTHER:
     case PVEC_XWIDGET:
@@ -3462,11 +3612,11 @@ dump_cold_string (struct dump_context *ctx, Lisp_Object string)
     error ("string too large");
   dump_off total_size = ptrdiff_t_to_dump_off (SBYTES (string) + 1);
   eassert (total_size > 0);
-  dump_remember_fixup_ptr_raw
+  dump_cold_bytes
     (ctx,
      string_offset + dump_offsetof (struct Lisp_String, u.s.data),
-     ctx->offset);
-  dump_write (ctx, XSTRING (string)->u.s.data, total_size);
+     XSTRING (string)->u.s.data,
+     total_size);
 }
 
 static void
@@ -3475,12 +3625,12 @@ dump_cold_charset (struct dump_context *ctx, Lisp_Object data)
   /* Dump charset lookup tables.  */
   int cs_i = XFIXNUM (XCAR (data));
   dump_off cs_dump_offset = dump_off_from_lisp (XCDR (data));
-  dump_remember_fixup_ptr_raw
+  struct charset *cs = charset_table + cs_i;
+  dump_cold_bytes
     (ctx,
      cs_dump_offset + dump_offsetof (struct charset, code_space_mask),
-     ctx->offset);
-  struct charset *cs = charset_table + cs_i;
-  dump_write (ctx, cs->code_space_mask, 256);
+     cs->code_space_mask,
+     256);
 }
 
 static void
@@ -3501,11 +3651,11 @@ dump_cold_buffer (struct dump_context *ctx, Lisp_Object data)
     + 1;
   if (nbytes > DUMP_OFF_MAX)
     error ("buffer too large");
-  dump_remember_fixup_ptr_raw
+  dump_cold_bytes
     (ctx,
      buffer_offset + dump_offsetof (struct buffer, own_text.beg),
-     ctx->offset);
-  dump_write (ctx, b->own_text.beg, ptrdiff_t_to_dump_off (nbytes));
+     b->own_text.beg,
+     ptrdiff_t_to_dump_off (nbytes));
 }
 
 static void

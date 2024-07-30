@@ -3467,6 +3467,25 @@ cleanup_vector (struct Lisp_Vector *vector)
 	  }
       }
       break;
+    case PVEC_REGEXP:
+      {
+	struct Lisp_Regexp *r = PSEUDOVEC_STRUCT (vector, Lisp_Regexp);
+	eassert (r->buffer->allocated > 0);
+	eassert (r->buffer->used <= r->buffer->allocated);
+	xfree (r->buffer->buffer);
+	xfree (r->buffer->fastmap);
+	xfree (r->buffer);
+      }
+      break;
+    case PVEC_MATCH:
+      {
+	struct Lisp_Match *m = PSEUDOVEC_STRUCT (vector, Lisp_Match);
+	eassert (m->regs->num_regs > 0);
+	xfree (m->regs->start);
+	xfree (m->regs->end);
+	xfree (m->regs);
+      }
+      break;
     case PVEC_OBARRAY:
       {
 	struct Lisp_Obarray *o = PSEUDOVEC_STRUCT (vector, Lisp_Obarray);
@@ -5881,6 +5900,64 @@ make_pure_c_string (const char *data, ptrdiff_t nchars)
 
 static Lisp_Object purecopy (Lisp_Object obj);
 
+static struct re_pattern_buffer *
+make_pure_re_pattern_buffer (const struct re_pattern_buffer *bufp)
+{
+  struct re_pattern_buffer *pure = pure_alloc (sizeof *pure, -1);
+  *pure = *bufp;
+
+  pure->buffer = pure_alloc (bufp->used, -1);
+  memcpy (pure->buffer, bufp->buffer, bufp->used);
+  pure->allocated = bufp->used;
+  pure->fastmap = pure_alloc (FASTMAP_SIZE, -1);
+  memcpy (pure->fastmap, bufp->fastmap, FASTMAP_SIZE);
+  pure->translate = purecopy (bufp->translate);
+
+  return pure;
+}
+
+static Lisp_Object
+make_pure_regexp (const struct Lisp_Regexp *r)
+{
+  struct Lisp_Regexp *pure = pure_alloc (sizeof *pure, Lisp_Vectorlike);
+  *pure = *r;
+
+  pure->pattern = purecopy (r->pattern);
+  pure->whitespace_regexp = purecopy (r->whitespace_regexp);
+  pure->syntax_table = purecopy (r->syntax_table);
+  pure->default_match_target = purecopy (r->default_match_target);
+  pure->buffer = make_pure_re_pattern_buffer (r->buffer);
+
+  return make_lisp_ptr (pure, Lisp_Vectorlike);
+}
+
+static struct re_registers *
+make_pure_re_registers (const struct re_registers *regs)
+{
+  struct re_registers *pure = pure_alloc (sizeof *pure, -1);
+  *pure = *regs;
+
+  ptrdiff_t reg_size = regs->num_regs * sizeof (ptrdiff_t);
+  pure->start = pure_alloc (reg_size, -1);
+  memcpy (pure->start, regs->start, reg_size);
+  pure->end = pure_alloc (reg_size, -1);
+  memcpy (pure->end, regs->end, reg_size);
+
+  return pure;
+}
+
+static Lisp_Object
+make_pure_match (const struct Lisp_Match *m)
+{
+  struct Lisp_Match *pure = pure_alloc (sizeof *pure, Lisp_Vectorlike);
+  *pure = *m;
+
+  pure->haystack = purecopy (m->haystack);
+  pure->regs = make_pure_re_registers (m->regs);
+
+  return make_lisp_ptr (pure, Lisp_Vectorlike);
+}
+
 /* Return a cons allocated from pure space.  Give it pure copies
    of CAR as car and CDR as cdr.  */
 
@@ -6038,6 +6115,10 @@ purecopy (Lisp_Object obj)
     obj = make_pure_string (SSDATA (obj), SCHARS (obj),
 			    SBYTES (obj),
 			    STRING_MULTIBYTE (obj));
+  else if (REGEXP_P (obj))
+    obj = make_pure_regexp (XREGEXP (obj));
+  else if (MATCH_P (obj))
+    obj = make_pure_match (XMATCH (obj));
   else if (HASH_TABLE_P (obj))
     {
       struct Lisp_Hash_Table *table = XHASH_TABLE (obj);
@@ -7309,6 +7390,19 @@ process_mark_stack (ptrdiff_t base_sp)
 		  struct Lisp_Obarray *o = (struct Lisp_Obarray *)ptr;
 		  set_vector_marked (ptr);
 		  mark_stack_push_values (o->buckets, obarray_size (o));
+		  break;
+		}
+
+	      case PVEC_REGEXP:
+		{
+		  ptrdiff_t size = ptr->header.size;
+		  if (size & PSEUDOVECTOR_FLAG)
+		    size &= PSEUDOVECTOR_SIZE_MASK;
+		  set_vector_marked (ptr);
+		  mark_stack_push_values (ptr->contents, size);
+
+		  struct Lisp_Regexp *r = (struct Lisp_Regexp *)ptr;
+		  mark_stack_push_value (r->buffer->translate);
 		  break;
 		}
 

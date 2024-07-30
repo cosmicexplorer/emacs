@@ -1048,6 +1048,8 @@ enum pvec_type
   PVEC_TS_NODE,
   PVEC_TS_COMPILED_QUERY,
   PVEC_SQLITE,
+  PVEC_REGEXP,
+  PVEC_MATCH,
 
   /* These should be last, for internal_equal and sxhash_obj.  */
   PVEC_CLOSURE,
@@ -1421,6 +1423,8 @@ dead_object (void)
 #define XSETTERMINAL(a, b) XSETPSEUDOVECTOR (a, b, PVEC_TERMINAL)
 #define XSETSUBR(a, b) XSETPSEUDOVECTOR (a, b, PVEC_SUBR)
 #define XSETBUFFER(a, b) XSETPSEUDOVECTOR (a, b, PVEC_BUFFER)
+#define XSETREGEXP(a, b) XSETPSEUDOVECTOR (a, b, PVEC_REGEXP)
+#define XSETMATCH(a, b) XSETPSEUDOVECTOR (a, b, PVEC_MATCH)
 #define XSETCHAR_TABLE(a, b) XSETPSEUDOVECTOR (a, b, PVEC_CHAR_TABLE)
 #define XSETBOOL_VECTOR(a, b) XSETPSEUDOVECTOR (a, b, PVEC_BOOL_VECTOR)
 #define XSETSUB_CHAR_TABLE(a, b) XSETPSEUDOVECTOR (a, b, PVEC_SUB_CHAR_TABLE)
@@ -2707,6 +2711,47 @@ XHASH_TABLE (Lisp_Object a)
   return XUNTAG (a, Lisp_Vectorlike, struct Lisp_Hash_Table);
 }
 
+INLINE bool
+REGEXP_P (Lisp_Object a)
+{
+  return PSEUDOVECTORP (a, PVEC_REGEXP);
+}
+
+INLINE struct Lisp_Regexp *
+XREGEXP (Lisp_Object a)
+{
+  eassert (REGEXP_P (a));
+  return XUNTAG (a, Lisp_Vectorlike, struct Lisp_Regexp);
+}
+
+INLINE void
+CHECK_REGEXP (Lisp_Object x)
+{
+  CHECK_TYPE (REGEXP_P (x), Qregexpp, x);
+}
+
+INLINE bool
+MATCH_P (Lisp_Object a)
+{
+  return PSEUDOVECTORP (a, PVEC_MATCH);
+}
+
+INLINE struct Lisp_Match *
+XMATCH (Lisp_Object a)
+{
+  eassert (MATCH_P (a));
+  return XUNTAG (a, Lisp_Vectorlike, struct Lisp_Match);
+}
+
+INLINE void
+CHECK_MATCH (Lisp_Object x)
+{
+  CHECK_TYPE (MATCH_P (x), Qmatchp, x);
+}
+
+/* Defined in regex-emacs.c. */
+Lisp_Object allocate_match (ptrdiff_t re_nsub);
+
 INLINE Lisp_Object
 make_lisp_hash_table (struct Lisp_Hash_Table *h)
 {
@@ -2954,6 +2999,25 @@ struct Lisp_Sqlite
   void (*finalizer) (void *);
   bool eof;
   bool is_statement;
+} GCALIGNED_STRUCT;
+
+struct Lisp_Regexp
+{
+  union vectorlike_header header;
+  Lisp_Object pattern;
+  Lisp_Object whitespace_regexp;
+  Lisp_Object syntax_table;
+  Lisp_Object default_match_target;
+  bool posix;
+  struct re_pattern_buffer *buffer;
+} GCALIGNED_STRUCT;
+
+struct Lisp_Match
+{
+  union vectorlike_header header;
+  Lisp_Object haystack;
+  ptrdiff_t initialized_regs;
+  struct re_registers *regs;
 } GCALIGNED_STRUCT;
 
 struct Lisp_User_Ptr
@@ -4469,6 +4533,9 @@ extern bool pos_visible_p (struct window *, ptrdiff_t, int *,
 /* Defined in sqlite.c.  */
 extern void syms_of_sqlite (void);
 
+/* Defined in regex-emacs.c. */
+extern void syms_of_regexp (void);
+
 /* Defined in xsettings.c.  */
 extern void syms_of_xsettings (void);
 
@@ -5147,9 +5214,6 @@ extern ptrdiff_t find_newline_no_quit (ptrdiff_t, ptrdiff_t,
 				       ptrdiff_t, ptrdiff_t *);
 extern ptrdiff_t find_before_next_newline (ptrdiff_t, ptrdiff_t,
 					   ptrdiff_t, ptrdiff_t *);
-extern EMACS_INT search_buffer (Lisp_Object, ptrdiff_t, ptrdiff_t,
-				ptrdiff_t, ptrdiff_t, EMACS_INT,
-				bool, Lisp_Object, Lisp_Object, bool);
 extern void syms_of_search (void);
 extern void clear_regexp_cache (void);
 

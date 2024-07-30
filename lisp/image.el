@@ -36,30 +36,31 @@
                   (&optional filter animation-cache))
 
 (defconst image-type-header-regexps
-  `(("\\`/[\t\n\r ]*\\*.*XPM.\\*/" . xpm)
-    ("\\`P[1-6]\\(?:\
+  `((,(make-regexp "\\`/[\t\n\r ]*\\*.*XPM.\\*/") . xpm)
+    (,(make-regexp "\\`P[1-6]\\(?:\
 \\(?:\\(?:#[^\r\n]*[\r\n]\\)*[ \t\r\n]\\)+\
 \\(?:\\(?:#[^\r\n]*[\r\n]\\)*[0-9]\\)+\
-\\)\\{2\\}" . pbm)
-    ("\\`GIF8[79]a" . gif)
-    ("\\`\x89PNG\r\n\x1a\n" . png)
-    ("\\`[\t\n\r ]*#define \\([a-z0-9_]+\\)_width [0-9]+\n\
+\\)\\{2\\}") . pbm)
+    (,(make-regexp "\\`GIF8[79]a") . gif)
+    (,(make-regexp "\\`\x89PNG\r\n\x1a\n") . png)
+    (,(make-regexp "\\`[\t\n\r ]*#define \\([a-z0-9_]+\\)_width [0-9]+\n\
 #define \\1_height [0-9]+\n\\(\
 #define \\1_x_hot [0-9]+\n\
 #define \\1_y_hot [0-9]+\n\\)?\
-static \\(unsigned \\)?char \\1_bits" . xbm)
-    ("\\`\\(?:MM\0\\*\\|II\\*\0\\)" . tiff)
-    ("\\`[\t\n\r ]*%!PS" . postscript)
-    ("\\`\xff\xd8" . jpeg)    ; used to be (image-jpeg-p . jpeg)
-    ("\\`RIFF[^z-a][^z-a][^z-a][^z-a]WEBPVP8" . webp)
+static \\(unsigned \\)?char \\1_bits") . xbm)
+    (,(make-regexp "\\`\\(?:MM\0\\*\\|II\\*\0\\)") . tiff)
+    (,(make-regexp "\\`[\t\n\r ]*%!PS") . postscript)
+    (,(make-regexp "\\`\xff\xd8") . jpeg)    ; used to be (image-jpeg-p . jpeg)
+    (,(make-regexp "\\`RIFF[^z-a][^z-a][^z-a][^z-a]WEBPVP8") . webp)
     (,(let* ((incomment-re "\\(?:[^-]\\|-[^-]\\)")
-	     (comment-re (concat "\\(?:!--" incomment-re "*-->[ \t\r\n]*<\\)")))
-	(concat "\\(?:<\\?xml[ \t\r\n]+[^>]*>\\)?[ \t\r\n]*<"
-		comment-re "*"
-		"\\(?:!DOCTYPE[ \t\r\n]+[^>]*>[ \t\r\n]*<[ \t\r\n]*" comment-re "*\\)?"
-		"[Ss][Vv][Gg]"))
+             (comment-re (concat "\\(?:!--" incomment-re "*-->[ \t\r\n]*<\\)")))
+        (make-regexp
+         (concat "\\(?:<\\?xml[ \t\r\n]+[^>]*>\\)?[ \t\r\n]*<"
+                 comment-re "*"
+                 "\\(?:!DOCTYPE[ \t\r\n]+[^>]*>[ \t\r\n]*<[ \t\r\n]*" comment-re "*\\)?"
+                 "[Ss][Vv][Gg]")))
      . svg)
-    ("\\`....ftyp\\(heic\\|heix\\|hevc\\|heim\\|heis\\|hevm\\|hevs\\|mif1\\|msf1\\)" . heic))
+    (,(make-regexp "\\`....ftyp\\(heic\\|heix\\|hevc\\|heim\\|heis\\|hevm\\|hevs\\|mif1\\|msf1\\)") . heic))
   "Alist of (REGEXP . IMAGE-TYPE) pairs used to auto-detect image types.
 When the first bytes of an image file match REGEXP, it is assumed to
 be of image type IMAGE-TYPE if IMAGE-TYPE is a symbol.  If not a symbol,
@@ -68,18 +69,18 @@ with one argument, a string containing the image data.  If PREDICATE returns
 a non-nil value, TYPE is the image's type.")
 
 (defvar image-type-file-name-regexps
-  '(("\\.png\\'" . png)
-    ("\\.gif\\'" . gif)
-    ("\\.jpe?g\\'" . jpeg)
-    ("\\.webp\\'" . webp)
-    ("\\.bmp\\'" . bmp)
-    ("\\.xpm\\'" . xpm)
-    ("\\.pbm\\'" . pbm)
-    ("\\.xbm\\'" . xbm)
-    ("\\.ps\\'" . postscript)
-    ("\\.tiff?\\'" . tiff)
-    ("\\.svgz?\\'" . svg)
-    ("\\.hei[cf]s?\\'" . heic))
+  `((,(make-regexp "\\.png\\'") . png)
+    (,(make-regexp "\\.gif\\'") . gif)
+    (,(make-regexp "\\.jpe?g\\'") . jpeg)
+    (,(make-regexp "\\.webp\\'") . webp)
+    (,(make-regexp "\\.bmp\\'") . bmp)
+    (,(make-regexp "\\.xpm\\'") . xpm)
+    (,(make-regexp "\\.pbm\\'") . pbm)
+    (,(make-regexp "\\.xbm\\'") . xbm)
+    (,(make-regexp "\\.ps\\'") . postscript)
+    (,(make-regexp "\\.tiff?\\'") . tiff)
+    (,(make-regexp "\\.svgz?\\'") . svg)
+    (,(make-regexp "\\.hei[cf]s?\\'") . heic))
   "Alist of (REGEXP . IMAGE-TYPE) pairs used to identify image files.
 When the name of an image file match REGEXP, it is assumed to
 be of image type IMAGE-TYPE.")

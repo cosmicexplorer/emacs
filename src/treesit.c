@@ -27,6 +27,8 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "treesit.h"
 
 #if HAVE_TREE_SITTER
+/* For search_buffer(). */
+# include "regex-emacs.h"
 
 
 /* Dynamic loading of libtree-sitter.  */
@@ -2982,7 +2984,7 @@ treesit_predicate_match (Lisp_Object args, struct capture_range captures,
   ZV_BYTE = end_byte;
 
   ptrdiff_t val = search_buffer (regexp, start_pos, start_byte,
-				 end_pos, end_byte, 1, true, Qnil, Qnil, false);
+				 end_pos, end_byte, 1, true, false, NULL);
 
   BEGV = old_begv;
   BEGV_BYTE = old_begv_byte;

@@ -7888,6 +7888,7 @@ if test -f "$srcdir/$opt_makefile.in"; then
   dnl ", [], [opt_makefile='$opt_makefile']" and it should work.
   ARCH_INDEPENDENT_CONFIG_FILES([test/Makefile])
   ARCH_INDEPENDENT_CONFIG_FILES([test/manual/noverlay/Makefile])
+  ARCH_INDEPENDENT_CONFIG_FILES([test/manual/regexp/Makefile])
 fi
 opt_makefile=test/infra/Makefile
 if test -f "$srcdir/$opt_makefile.in"; then
