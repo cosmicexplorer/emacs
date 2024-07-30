@@ -21,6 +21,8 @@
 
 #include <stddef.h>
 
+#define RE_MATCH_EXP_UNSET (-1)
+
 /* This is the structure we store register match data in.
    Declare this before including lisp.h, since lisp.h (via thread.h)
    uses struct re_registers.  */
@@ -32,6 +34,33 @@ struct re_registers
 };
 
 #include "lisp.h"
+
+struct regexp_match_info
+{
+  struct re_registers *regs;
+  struct Lisp_Match *match;
+};
+
+INLINE_HEADER_BEGIN
+INLINE struct regexp_match_info
+empty_regexp_match_info (void)
+{
+  struct regexp_match_info ret = { .regs = NULL, .match = NULL };
+  return ret;
+}
+
+INLINE struct regexp_match_info
+make_regs_only_match_info (struct re_registers* regs)
+{
+  struct regexp_match_info ret = { .regs = regs, .match = NULL };
+  return ret;
+}
+INLINE_HEADER_END
+
+/* Defined in search.c. */
+extern EMACS_INT search_buffer (Lisp_Object, ptrdiff_t, ptrdiff_t,
+				ptrdiff_t, ptrdiff_t, EMACS_INT,
+				bool, bool, struct regexp_match_info*);
 
 /* The string or buffer being matched.
    It is used for looking up syntax properties.
@@ -51,6 +80,9 @@ extern Lisp_Object re_match_object;
 
 /* Roughly the maximum number of failure points on the stack.  */
 extern ptrdiff_t emacs_re_max_failures;
+
+/* The size of an allocation for a fastmap. */
+#define FASTMAP_SIZE 0400
 
 /* Amount of memory that we can safely stack allocate.  */
 extern ptrdiff_t emacs_re_safe_alloca;
@@ -139,7 +171,7 @@ extern const char *re_compile_pattern (const char *pattern, ptrdiff_t length,
 extern ptrdiff_t re_search (struct re_pattern_buffer *buffer,
 			   const char *string, ptrdiff_t length,
 			   ptrdiff_t start, ptrdiff_t range,
-			   struct re_registers *regs);
+			   struct regexp_match_info* info);
 
 
 /* Like 're_search', but search in the concatenation of STRING1 and
@@ -148,7 +180,7 @@ extern ptrdiff_t re_search_2 (struct re_pattern_buffer *buffer,
 			     const char *string1, ptrdiff_t length1,
 			     const char *string2, ptrdiff_t length2,
 			     ptrdiff_t start, ptrdiff_t range,
-			     struct re_registers *regs,
+			     struct regexp_match_info* info,
 			     ptrdiff_t stop);
 
 
@@ -157,7 +189,7 @@ extern ptrdiff_t re_search_2 (struct re_pattern_buffer *buffer,
 extern ptrdiff_t re_match_2 (struct re_pattern_buffer *buffer,
 			    const char *string1, ptrdiff_t length1,
 			    const char *string2, ptrdiff_t length2,
-			    ptrdiff_t start, struct re_registers *regs,
+			    ptrdiff_t start, struct regexp_match_info* info,
 			    ptrdiff_t stop);
 
 
