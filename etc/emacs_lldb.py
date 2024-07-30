@@ -69,6 +69,8 @@ class Lisp_Object:
         "PVEC_MODULE_FUNCTION": "struct Lisp_Module_Function",
         "PVEC_NATIVE_COMP_UNIT": "struct Lisp_Native_Comp_Unit",
         "PVEC_SQLITE": "struct Lisp_Sqlite",
+        "PVEC_REGEXP": "struct Lisp_Regexp",
+        "PVEC_MATCH": "struct Lisp_Match",
         "PVEC_COMPILED": "struct Lisp_Vector",
         "PVEC_CHAR_TABLE": "struct Lisp_Vector",
         "PVEC_SUB_CHAR_TABLE": "void",

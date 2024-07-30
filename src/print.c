@@ -2084,6 +2084,54 @@ print_vectorlike_unreadable (Lisp_Object obj, Lisp_Object printcharfun,
       }
       return;
 
+    case PVEC_REGEXP:
+      {
+	struct Lisp_Regexp *r = XREGEXP (obj);
+	print_c_string ("#<regexp pattern=", printcharfun);
+	print_object (r->pattern, printcharfun, escapeflag);
+	int i = sprintf (buf, " nsub=%ld", r->buffer->re_nsub);
+	strout (buf, i, i, printcharfun);
+	print_c_string (" translate=", printcharfun);
+	print_object (r->buffer->translate, printcharfun, escapeflag);
+	print_c_string (" whitespace=", printcharfun);
+	print_object (r->whitespace_regexp, printcharfun, escapeflag);
+	print_c_string (" syntax_table=", printcharfun);
+	print_object (r->syntax_table, printcharfun, escapeflag);
+	if (r->posix)
+	  {
+	    print_c_string (" posix=true", printcharfun);
+	  }
+	else
+	  {
+	    print_c_string (" posix=false", printcharfun);
+	  }
+	print_c_string (">", printcharfun);
+      }
+      return;
+
+    case PVEC_MATCH:
+      {
+	struct Lisp_Match *m = XMATCH (obj);
+	ptrdiff_t num_regs = m->regs->num_regs;
+	ptrdiff_t initialized_regs = m->initialized_regs;
+	print_c_string ("#<match", printcharfun);
+	int i = sprintf (buf, " num_regs=%ld(%ld allocated)",
+			 initialized_regs, num_regs);
+	strout (buf, i, i, printcharfun);
+	print_c_string (" haystack=", printcharfun);
+	print_object (m->haystack, printcharfun, escapeflag);
+	print_c_string (" regs=[", printcharfun);
+	for (ptrdiff_t reg_index = 0; reg_index < num_regs; ++reg_index)
+	  {
+	    int i = sprintf (buf, "(%ld,%ld),",
+			     m->regs->start[reg_index],
+			     m->regs->end[reg_index]);
+	    strout (buf, i, i, printcharfun);
+	  }
+	print_c_string ("]>", printcharfun);
+      }
+      return;
+
     case PVEC_OBARRAY:
       {
 	struct Lisp_Obarray *o = XOBARRAY (obj);
