@@ -926,6 +926,54 @@ Set $ as a hash table pointer.
 This command assumes that $ is an Emacs Lisp hash table value.
 end
 
+# TODO: figure out how to print re_pattern_buffer!
+define xregexp
+  xgetptr $
+  print (struct Lisp_Regexp *) $ptr
+  xgetptr $->pattern
+  printf "pattern = %s\n", $ptr ? (char *) ((struct Lisp_String *) $ptr)->u.s.data : "DEAD"
+  printf "posix = %d\n", $->posix
+end
+document xregexp
+Set $ as a regexp pointer and print the pattern it was compiled from.
+This command assumes $ is an Emacs Lisp compiled regexp value.
+end
+
+# TODO: figure out how to print re_registers!
+define xmatch
+  xgetptr $
+  print (struct Lisp_Match *) $ptr
+  set $m = $
+  xgettype $m->haystack
+  xgetptr $m->haystack
+  set $h = $ptr
+  xgetptr Qnil
+  set $nil = $ptr
+  if $type == Lisp_String
+    print (struct Lisp_String *) $h
+    printf "haystack = \"%s\"\n", $h ? (char *) ((struct Lisp_String *) $h)->u.s.data : "DEAD"
+  end
+  if $type == Lisp_Vectorlike
+    set $size = ((struct Lisp_Vector *) $h)->header.size
+    if ($size & PSEUDOVECTOR_FLAG)
+      set $vec = (enum pvec_type) (($size & PVEC_TYPE_MASK) >> PSEUDOVECTOR_AREA_BITS)
+      if $vec == PVEC_BUFFER
+        print (struct buffer *) $h
+        xgetptr $->name_
+        printf "haystack = <buffer \"%s\">\n", $ptr ? (char *) ((struct Lisp_String *) $ptr)->u.s.data : "DEAD"
+      end
+    end
+  end
+  if $h == $nil
+    printf "haystack = nil\n"
+  end
+  printf "initialized_regs = %ld\n", $m->initialized_regs
+end
+document xmatch
+Set $ as a regexp match pointer.
+This command assumes $ is an Emacs Lisp regexp match value.
+end
+
 define xtsparser
   xgetptr $
   print (struct Lisp_TS_Parser *) $ptr
@@ -1098,6 +1146,12 @@ define xpr
       end
       if $vec == PVEC_HASH_TABLE
 	xhashtable
+      end
+      if $vec == PVEC_REGEXP
+        xregexp
+      end
+      if $vec == PVEC_MATCH
+        xmatch
       end
       if $vec == PVEC_TS_PARSER
 	xtsparser
