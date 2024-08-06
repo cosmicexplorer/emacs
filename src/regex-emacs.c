@@ -36,6 +36,17 @@
 #include "category.h"
 #include "dispextern.h"
 
+/* See comment in header about compiler error from attempting to define
+   this inline. */
+struct regexp_match_info
+make_full_match_info (struct Lisp_Match *match)
+{
+  /* Ensure we're not using NULL to mean an optional value. */
+  eassert (match != NULL);
+  struct regexp_match_info ret = { .regs = &match->regs, .match = match };
+  return ret;
+}
+
 /* Maximum number of duplicates an interval can allow.  Some systems
    define this in other header files, but we want our value, so remove
    any previous define.  Repeat counts are stored in opcodes as 2-byte
@@ -5395,7 +5406,7 @@ literal space characters in PATTERN. */)
   char *val = NULL;
   bool is_posix = !NILP (posix);
   struct Lisp_Regexp *p = NULL;
-  struct re_pattern_buffer *bufp = NULL;
+  struct re_pattern_buffer re_buf = { 0 };
 
   if (!NILP (Vsearch_spaces_regexp))
     {
@@ -5410,21 +5421,18 @@ literal space characters in PATTERN. */)
 
   CHECK_STRING (pattern);
 
-  bufp = xzalloc (sizeof (*bufp));
-
-  bufp->fastmap = xzalloc (FASTMAP_SIZE);
-  bufp->translate = translate;
-  bufp->multibyte = STRING_MULTIBYTE (pattern);
-  bufp->charset_unibyte = charset_unibyte;
+  re_buf.fastmap = xzalloc (FASTMAP_SIZE);
+  re_buf.translate = XLP (translate);
+  re_buf.multibyte = STRING_MULTIBYTE (pattern);
+  re_buf.charset_unibyte = charset_unibyte;
 
   val = (char *) re_compile_pattern (SSDATA (pattern), SBYTES (pattern),
-				     is_posix, whitespace_regexp, bufp);
+				     is_posix, whitespace_regexp, &re_buf);
 
   if (val)
     {
-      xfree (bufp->buffer);
-      xfree (bufp->fastmap);
-      xfree (bufp);
+      xfree (re_buf.buffer);
+      xfree (re_buf.fastmap);
       xsignal1 (Qinvalid_regexp, build_string (val));
     }
 
@@ -5434,16 +5442,16 @@ literal space characters in PATTERN. */)
   p->whitespace_regexp = Vsearch_spaces_regexp;
   /* If the compiled pattern hard codes some of the contents of the
      syntax-table, it can only be reused with *this* syntax table.  */
-  p->syntax_table = bufp->used_syntax ? BVAR (current_buffer, syntax_table) : Qt;
+  p->syntax_table = re_buf.used_syntax ? BVAR (current_buffer, syntax_table) : Qt;
   p->posix = is_posix;
 
   /* Allocate the match data implicitly stored in this regexp. */
-  p->default_match_target = allocate_match (bufp->re_nsub);
+  p->default_match_target = allocate_match (re_buf.re_nsub);
   /* Tell regex matching routines they do not need to allocate any
      further memory, since we have allocated it here in advance. */
-  bufp->regs_allocated = REGS_FIXED;
+  re_buf.regs_allocated = REGS_FIXED;
   /* Fully initialize all fields. */
-  p->buffer = bufp;
+  p->buffer = re_buf;
 
   return make_lisp_ptr (p, Lisp_Vectorlike);
 }
@@ -5489,7 +5497,7 @@ DEFUN ("regexp-get-translation-table", Fregexp_get_translation_table,
   (Lisp_Object regexp)
 {
   CHECK_REGEXP (regexp);
-  return XREGEXP (regexp)->buffer->translate;
+  return make_lisp_ptr (XREGEXP (regexp)->buffer.translate, Lisp_Vectorlike);
 }
 
 DEFUN ("regexp-get-num-subexps", Fregexp_get_num_subexps,
@@ -5498,7 +5506,7 @@ DEFUN ("regexp-get-num-subexps", Fregexp_get_num_subexps,
   (Lisp_Object regexp)
 {
   CHECK_REGEXP (regexp);
-  return make_fixnum (XREGEXP (regexp)->buffer->re_nsub);
+  return make_fixnum (XREGEXP (regexp)->buffer.re_nsub);
 }
 
 DEFUN ("regexp-get-default-match-data", Fregexp_get_default_match_data,
@@ -5520,7 +5528,7 @@ reallocate_match_registers (ptrdiff_t re_nsub, struct Lisp_Match *m)
 {
   ptrdiff_t needed_regs = re_nsub + 1;
   eassert (needed_regs > 0);
-  struct re_registers *regs = m->regs;
+  struct re_registers *regs = &m->regs;
   /* If we need more elements than were already allocated, reallocate them.
      If we need fewer, just leave it alone. */
   if (regs->num_regs < needed_regs)
@@ -5550,10 +5558,9 @@ registers for the sub-expressions in REGEXP. */)
   CHECK_REGEXP (regexp);
   CHECK_MATCH (match);
   struct Lisp_Regexp *r = XREGEXP (regexp);
-  struct re_pattern_buffer *bufp = r->buffer;
 
   /* This should always be true for any compiled regexp. */
-  eassert (bufp->regs_allocated == REGS_FIXED);
+  eassert (r->buffer.regs_allocated == REGS_FIXED);
 
   /* Overwrite the default target. */
   r->default_match_target = match;
@@ -5568,10 +5575,11 @@ allocate_match (ptrdiff_t re_nsub)
   /* Number of match registers always includes 0 for whole match. */
   ptrdiff_t num_regs = re_nsub + 1;
 
-  struct re_registers *regs = xzalloc (sizeof (*regs));
-  regs->num_regs = num_regs;
-  regs->start = xnmalloc (num_regs, sizeof (*regs->start));
-  regs->end = xnmalloc (num_regs, sizeof (*regs->end));
+  struct re_registers regs = {
+    .num_regs = num_regs,
+    .start = xnmalloc (num_regs, sizeof (*regs.start)),
+    .end = xnmalloc (num_regs, sizeof (*regs.end)),
+  };
 
   /* Construct lisp match object. */
   struct Lisp_Match *m = ALLOCATE_PSEUDOVECTOR
@@ -5582,7 +5590,7 @@ allocate_match (ptrdiff_t re_nsub)
   m->haystack = Qnil;
   /* Initialize all values to -1 for "unset". */
   for (ptrdiff_t reg_index = 0; reg_index < num_regs; ++reg_index)
-    regs->start[reg_index] = regs->end[reg_index] = RE_MATCH_EXP_UNSET;
+    regs.start[reg_index] = regs.end[reg_index] = RE_MATCH_EXP_UNSET;
   /* No successful match has occurred yet, so nothing is initialized. */
   m->initialized_regs = 0;
 
@@ -5597,7 +5605,7 @@ extract_re_nsub_arg (Lisp_Object regexp_or_num_registers)
   if (NILP (regexp_or_num_registers))
     re_nsub = 0;
   else if (REGEXP_P (regexp_or_num_registers))
-    re_nsub = XREGEXP (regexp_or_num_registers)->buffer->re_nsub;
+    re_nsub = XREGEXP (regexp_or_num_registers)->buffer.re_nsub;
   else
     {
       CHECK_FIXNAT (regexp_or_num_registers);
@@ -5739,7 +5747,7 @@ This value will always be at least as large as the result of
 {
   struct Lisp_Match *match =
     extract_regexp_or_match (regexp_or_match);
-  return make_fixed_natnum (match->regs->num_regs);
+  return make_fixed_natnum (match->regs.num_regs);
 }
 
 static ptrdiff_t
@@ -5760,8 +5768,8 @@ index_into_registers (struct Lisp_Match *m, ptrdiff_t group_index,
     error ("group %ld was out of bounds for match data with %ld registers",
 	   group_index, m->initialized_regs);
   return ((beginningp)
-	  ? m->regs->start[group_index]
-	  : m->regs->end[group_index]);
+	  ? m->regs.start[group_index]
+	  : m->regs.end[group_index]);
 }
 
 DEFUN ("match-register-start", Fmatch_register_start, Smatch_register_start,
@@ -5772,8 +5780,8 @@ REGEXP-OR-MATCH is either a compiled regexp object which was last
 searched against without providing a match object via 'inhibit-modify',
 or a match object provided via 'inhibit-modify' to a search method.
 
-GROUP, a number, specifies the parenthesized subexpression in the last
-  regexp for which to return the start position.
+GROUP, a number, specifies the parenthesized subexpression in the regexp
+  last for which to return the start position.
 Value is nil if GROUPth subexpression didn't match, or there were fewer
   than GROUP subexpressions.
 GROUP zero or nil means the entire text matched by the whole regexp or whole
@@ -5863,11 +5871,11 @@ Returns OUT. */)
 {
   ptrdiff_t result_length;
   if (REGEXP_P (regexp_or_match))
-    result_length = 1 + XREGEXP (regexp_or_match)->buffer->re_nsub;
+    result_length = 1 + XREGEXP (regexp_or_match)->buffer.re_nsub;
   else
     {
       CHECK_MATCH (regexp_or_match);
-      result_length = XMATCH (regexp_or_match)->regs->num_regs;
+      result_length = XMATCH (regexp_or_match)->regs.num_regs;
     }
   out = ensure_match_result_vector (result_length, out);
 
@@ -5910,7 +5918,7 @@ Returns OUT. */)
     extract_required_vector_length (m, max_group);
   out = ensure_match_result_vector (result_length, out);
 
-  write_positions_to_vector (result_length, m->regs->start, out);
+  write_positions_to_vector (result_length, m->regs.start, out);
 
   return out;
 }
@@ -5937,7 +5945,7 @@ Returns OUT. */)
     extract_required_vector_length (m, max_group);
   out = ensure_match_result_vector (result_length, out);
 
-  write_positions_to_vector (result_length, m->regs->end, out);
+  write_positions_to_vector (result_length, m->regs.end, out);
 
   return out;
 }
@@ -6014,7 +6022,7 @@ Returns OUT. */)
     extract_required_vector_length (m, max_group);
   out = ensure_match_result_vector (result_length, out);
 
-  write_marks_to_vector (result_length, m->regs->start, buffer, out);
+  write_marks_to_vector (result_length, m->regs.start, buffer, out);
 
   return out;
 }
@@ -6056,7 +6064,7 @@ Returns OUT. */)
     extract_required_vector_length (m, max_group);
   out = ensure_match_result_vector (result_length, out);
 
-  write_marks_to_vector (result_length, m->regs->end, buffer, out);
+  write_marks_to_vector (result_length, m->regs.end, buffer, out);
 
   return out;
 }

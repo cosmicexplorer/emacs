@@ -1935,7 +1935,11 @@ dump_field_fixup_later (struct dump_context *ctx,
                         const void *in_start,
                         const void *in_field)
 {
-  /* TODO: more error checking.  */
+  /* TODO: more error checking. Possibly adding a counter to
+     `dump_context' to ensure as many fields are actually dumped after
+     `dump_object_finish()' as "declared" with this method? Maybe some
+     sort of check for field size making of the known-valid allocation
+     from the input field? */
   (void) field_relpos (in_start, in_field);
 }
 
@@ -2158,19 +2162,32 @@ dump_marker (struct dump_context *ctx, const struct Lisp_Marker *marker)
 static dump_off
 dump_re_pattern_buffer (struct dump_context *ctx, const struct re_pattern_buffer *bufp)
 {
-#if CHECK_STRUCTS && !defined (HASH_re_pattern_buffer_36714DF24A)
+#if CHECK_STRUCTS && !defined (HASH_re_pattern_buffer_31B62CF6F6)
 # error "re_pattern_buffer changed. See CHECK_STRUCTS comment in config.h."
 #endif
   struct re_pattern_buffer out;
   dump_object_start (ctx, &out, sizeof (out));
-  if (bufp->buffer)
-    dump_field_fixup_later (ctx, &out, bufp, &bufp->buffer);
+
+  eassert (bufp->buffer != NULL);
+  dump_field_fixup_later (ctx, &out, bufp, &bufp->buffer);
+
   DUMP_FIELD_COPY (&out, bufp, allocated);
   DUMP_FIELD_COPY (&out, bufp, used);
   DUMP_FIELD_COPY (&out, bufp, charset_unibyte);
+
+  /* `fastmap' is sometimes unset when used with the `regexp_cache'. */
   if (bufp->fastmap)
     dump_field_fixup_later (ctx, &out, bufp, &bufp->fastmap);
-  dump_field_lv (ctx, &out, bufp, &bufp->translate, WEIGHT_NORMAL);
+
+  /* `translate' being NULL produces an invalid object from
+     `make_lisp_ptr()'. */
+  if (bufp->translate)
+    {
+      const Lisp_Object translate =
+	make_lisp_ptr ((void *) &bufp->translate, Lisp_Vectorlike);
+      dump_field_lv (ctx, &out, bufp, &translate, WEIGHT_NORMAL);
+    }
+
   DUMP_FIELD_COPY (&out, bufp, re_nsub);
   DUMP_FIELD_COPY (&out, bufp, can_be_null);
   DUMP_FIELD_COPY (&out, bufp, regs_allocated);
@@ -2178,30 +2195,29 @@ dump_re_pattern_buffer (struct dump_context *ctx, const struct re_pattern_buffer
   DUMP_FIELD_COPY (&out, bufp, used_syntax);
   DUMP_FIELD_COPY (&out, bufp, multibyte);
   DUMP_FIELD_COPY (&out, bufp, target_multibyte);
+
   dump_off offset = dump_object_finish (ctx, &out, sizeof (out));
-  if (bufp->buffer)
-    {
-      eassert (bufp->allocated > 0);
-      if (bufp->allocated > DUMP_OFF_MAX - 1)
-	error ("regex pattern buffer too large");
-      dump_off total_size = ptrdiff_t_to_dump_off (bufp->allocated);
-      eassert (total_size > 0);
-      dump_cold_bytes
-	(ctx,
-	 offset + dump_offsetof (struct re_pattern_buffer, buffer),
-	 bufp->buffer,
-	 total_size);
-    }
+
+  /* Now scan the dynamically-allocated sections. */
+  eassert (bufp->allocated > 0);
+  if (bufp->allocated > DUMP_OFF_MAX - 1)
+    error ("regex pattern buffer too large");
+  dump_off compiled_matcher_size =
+    ptrdiff_t_to_dump_off (bufp->allocated);
+  eassert (compiled_matcher_size > 0);
+  dump_cold_bytes
+    (ctx,
+     offset + dump_offsetof (struct re_pattern_buffer, buffer),
+     bufp->buffer,
+     compiled_matcher_size);
+
   if (bufp->fastmap)
-    {
-      eassert (FASTMAP_SIZE <= DUMP_OFF_MAX - 1);
-      dump_off fastmap_size = FASTMAP_SIZE;
-      dump_cold_bytes
-	(ctx,
-	 offset + dump_offsetof (struct re_pattern_buffer, fastmap),
-	 bufp->fastmap,
-	 fastmap_size);
-    }
+    dump_cold_bytes
+      (ctx,
+       offset + dump_offsetof (struct re_pattern_buffer, fastmap),
+       bufp->fastmap,
+       FASTMAP_SIZE);
+
   return offset;
 }
 
@@ -2238,7 +2254,7 @@ dump_re_registers (struct dump_context *ctx, const struct re_registers *regs)
 static dump_off
 dump_match (struct dump_context *ctx, const struct Lisp_Match *match)
 {
-#if CHECK_STRUCTS && !defined (HASH_Lisp_Match_EE9D54EA09)
+#if CHECK_STRUCTS && !defined (HASH_Lisp_Match_6EDCF0675B)
 # error "Lisp_Match changed. See CHECK_STRUCTS comment in config.h."
 #endif
   START_DUMP_PVEC (ctx, &match->header, struct Lisp_Match, out);
@@ -2248,14 +2264,14 @@ dump_match (struct dump_context *ctx, const struct Lisp_Match *match)
   dump_remember_fixup_ptr_raw
     (ctx,
      offset + dump_offsetof (struct Lisp_Match, regs),
-     dump_re_registers (ctx, match->regs));
+     dump_re_registers (ctx, &match->regs));
   return offset;
 }
 
 static dump_off
 dump_regexp (struct dump_context *ctx, const struct Lisp_Regexp *regexp)
 {
-#if CHECK_STRUCTS && !defined (HASH_Lisp_Regexp_29DF51A9AC)
+#if CHECK_STRUCTS && !defined (HASH_Lisp_Regexp_C700C2DF42)
 # error "Lisp_Regexp changed. See CHECK_STRUCTS comment in config.h."
 #endif
   START_DUMP_PVEC (ctx, &regexp->header, struct Lisp_Regexp, out);
@@ -2266,7 +2282,7 @@ dump_regexp (struct dump_context *ctx, const struct Lisp_Regexp *regexp)
   dump_remember_fixup_ptr_raw
     (ctx,
      offset + dump_offsetof (struct Lisp_Regexp, buffer),
-     dump_re_pattern_buffer (ctx, regexp->buffer));
+     dump_re_pattern_buffer (ctx, &regexp->buffer));
   return offset;
 }
 
@@ -2280,7 +2296,6 @@ dump_interval_node (struct dump_context *ctx, struct itree_node *node)
   dump_object_start (ctx, &out, sizeof (out));
   if (node->parent)
     dump_field_fixup_later (ctx, &out, node, &node->parent);
-  /* FIXME: should these both be &node->{left,right} instead of &node->parent? */
   if (node->left)
     dump_field_fixup_later (ctx, &out, node, &node->left);
   if (node->right)
