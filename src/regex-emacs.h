@@ -33,6 +33,77 @@ struct re_registers
   ptrdiff_t *end;
 };
 
+
+/* This data structure represents a compiled pattern.  Before calling
+   the pattern compiler, the fields 'buffer', 'allocated', 'fastmap',
+   and 'translate' can be set.  After the pattern has been
+   compiled, the 're_nsub' field is available.  All other fields are
+   private to the regex routines.  */
+/* re_pattern_buffer is also used in lisp.h, and therefore needs to be
+   fully declared before the include. */
+
+struct re_pattern_buffer
+{
+	/* Space that holds the compiled pattern.  It is declared as
+	  'unsigned char *' because its elements are
+	   sometimes used as array indexes.  */
+  unsigned char *buffer;
+
+	/* Number of bytes to which 'buffer' points.  */
+  ptrdiff_t allocated;
+
+	/* Number of bytes actually used in 'buffer'.  */
+  ptrdiff_t used;
+
+	/* Charset of unibyte characters at compiling time.  */
+  int charset_unibyte;
+
+	/* Pointer to a fastmap, if any, otherwise zero.  re_search uses
+	   the fastmap, if there is one, to skip over impossible
+	   starting points for matches.  */
+  char *fastmap;
+
+	/* Either a translate table to apply to all characters before
+	   comparing them, or zero for no translation.  The translation
+	   applies to a pattern when it is compiled and to a string
+	   when it is matched.  */
+	/* In order to use this struct in Lisp_Regexp in lisp.h, we
+	   need to pretend it's a void pointer instead of
+	   a Lisp_Object. */
+  void *translate;
+
+	/* Number of subexpressions found by the compiler.  */
+  ptrdiff_t re_nsub;
+
+	/* True if and only if this pattern can match the empty string.
+	   Well, in truth it's used only in 're_search_2', to see
+	   whether or not we should use the fastmap, so we don't set
+	   this absolutely perfectly; see 're_compile_fastmap'.  */
+  bool_bf can_be_null : 1;
+
+	/* If REGS_UNALLOCATED, allocate space in the 'regs' structure
+	     for at least (re_nsub + 1) groups.
+	   If REGS_REALLOCATE, reallocate space if necessary.
+	   If REGS_FIXED, use what's there.  */
+  unsigned regs_allocated : 2;
+
+	/* Set to false when 'regex_compile' compiles a pattern; set to true
+	   by 're_compile_fastmap' if it updates the fastmap.  */
+  bool_bf fastmap_accurate : 1;
+
+  /* If true, the compilation of the pattern had to look up the syntax table,
+     so the compiled pattern is valid for the current syntax table only.  */
+  bool_bf used_syntax : 1;
+
+  /* If true, multi-byte form in the regexp pattern should be
+     recognized as a multibyte character.  */
+  bool_bf multibyte : 1;
+
+  /* If true, multi-byte form in the target of match should be
+     recognized as a multibyte character.  */
+  bool_bf target_multibyte : 1;
+};
+
 #include "lisp.h"
 
 struct regexp_match_info
@@ -50,12 +121,21 @@ empty_regexp_match_info (void)
 }
 
 INLINE struct regexp_match_info
-make_regs_only_match_info (struct re_registers* regs)
+make_regs_only_match_info (struct re_registers *regs)
 {
+  /* Ensure we're not using NULL to mean an optional value. */
+  eassert (regs != NULL);
   struct regexp_match_info ret = { .regs = regs, .match = NULL };
   return ret;
 }
 INLINE_HEADER_END
+
+/* There's some ridiculous error "invalid use of undefined type
+   ‘struct Lisp_Match’" even though we just included lisp.h above here
+   where `struct Lisp_Match' is defined, sigh. Defined in
+   regex-emacs.c, luckily it doesn't matter for performance whether
+   this is inlined. */
+struct regexp_match_info make_full_match_info (struct Lisp_Match *match);
 
 /* Defined in search.c. */
 extern EMACS_INT search_buffer (Lisp_Object, ptrdiff_t, ptrdiff_t,
@@ -86,71 +166,6 @@ extern ptrdiff_t emacs_re_max_failures;
 
 /* Amount of memory that we can safely stack allocate.  */
 extern ptrdiff_t emacs_re_safe_alloca;
-
-/* This data structure represents a compiled pattern.  Before calling
-   the pattern compiler, the fields 'buffer', 'allocated', 'fastmap',
-   and 'translate' can be set.  After the pattern has been
-   compiled, the 're_nsub' field is available.  All other fields are
-   private to the regex routines.  */
-
-struct re_pattern_buffer
-{
-	/* Space that holds the compiled pattern.  It is declared as
-          'unsigned char *' because its elements are
-           sometimes used as array indexes.  */
-  unsigned char *buffer;
-
-	/* Number of bytes to which 'buffer' points.  */
-  ptrdiff_t allocated;
-
-	/* Number of bytes actually used in 'buffer'.  */
-  ptrdiff_t used;
-
-        /* Charset of unibyte characters at compiling time.  */
-  int charset_unibyte;
-
-        /* Pointer to a fastmap, if any, otherwise zero.  re_search uses
-           the fastmap, if there is one, to skip over impossible
-           starting points for matches.  */
-  char *fastmap;
-
-        /* Either a translate table to apply to all characters before
-           comparing them, or zero for no translation.  The translation
-           applies to a pattern when it is compiled and to a string
-           when it is matched.  */
-  Lisp_Object translate;
-
-	/* Number of subexpressions found by the compiler.  */
-  ptrdiff_t re_nsub;
-
-        /* True if and only if this pattern can match the empty string.
-           Well, in truth it's used only in 're_search_2', to see
-           whether or not we should use the fastmap, so we don't set
-           this absolutely perfectly; see 're_compile_fastmap'.  */
-  bool_bf can_be_null : 1;
-
-        /* If REGS_UNALLOCATED, allocate space in the 'regs' structure
-             for at least (re_nsub + 1) groups.
-           If REGS_REALLOCATE, reallocate space if necessary.
-           If REGS_FIXED, use what's there.  */
-  unsigned regs_allocated : 2;
-
-        /* Set to false when 'regex_compile' compiles a pattern; set to true
-           by 're_compile_fastmap' if it updates the fastmap.  */
-  bool_bf fastmap_accurate : 1;
-
-  /* If true, the compilation of the pattern had to look up the syntax table,
-     so the compiled pattern is valid for the current syntax table only.  */
-  bool_bf used_syntax : 1;
-
-  /* If true, multi-byte form in the regexp pattern should be
-     recognized as a multibyte character.  */
-  bool_bf multibyte : 1;
-
-  /* If true, multi-byte form in the target of match should be
-     recognized as a multibyte character.  */
-  bool_bf target_multibyte : 1;
-};
 
 /* Declarations for routines.  */
 

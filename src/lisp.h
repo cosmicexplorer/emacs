@@ -1368,7 +1368,10 @@ clip_to_bounds (intmax_t lower, intmax_t num, intmax_t upper)
 }
 
 /* Construct a Lisp_Object from a value or address.  */
-
+/* NB: this produces an invalid Lisp_Object which causes segfaults in
+   gc, pdumping, and purecopying if invoked with a null reference and
+   Lisp_Vectorlike as the type. Adding a check for NULL and returning
+   Qnil produces a different segfault when allocating vectors. */
 INLINE Lisp_Object
 make_lisp_ptr (void *ptr, enum Lisp_Type type)
 {
@@ -3009,7 +3012,7 @@ struct Lisp_Regexp
   Lisp_Object syntax_table;
   Lisp_Object default_match_target;
   bool posix;
-  struct re_pattern_buffer *buffer;
+  struct re_pattern_buffer buffer;
 } GCALIGNED_STRUCT;
 
 struct Lisp_Match
@@ -3017,7 +3020,7 @@ struct Lisp_Match
   union vectorlike_header header;
   Lisp_Object haystack;
   ptrdiff_t initialized_regs;
-  struct re_registers *regs;
+  struct re_registers regs;
 } GCALIGNED_STRUCT;
 
 struct Lisp_User_Ptr
