@@ -286,11 +286,7 @@ resolve_match_info (Lisp_Object regexp, Lisp_Object match)
 	     when we compiled the regexp. */
 	  m = XMATCH (r->default_match_target);
 	}
-      struct regexp_match_info ret = {
-	.regs = m->regs,
-	.match = m,
-      };
-      return ret;
+      return make_full_match_info (m);
     }
 
   /* If just a string, do the old complex logic to access thread-locals
@@ -301,6 +297,15 @@ resolve_match_info (Lisp_Object regexp, Lisp_Object match)
   if (running_asynch_code)
     save_search_regs ();
 
+  /* NB: this returns the current copy of the thread-local variable,
+     which is saved in a (thread-local) `thread_state' struct
+     (`search_regs' expands to `current_thread->m_search_regs'). This
+     shouldn't change any behavior, as the same thread accessing
+     `search_regs' multiple times in sequence should always access
+     the same virtual memory address anyway, but is worth noting as
+     adding support for precompiled regexps generally required changing
+     many parts of matching logic which previously had to assume they
+     could be pre-empted and invalidated at any time. */
   return make_regs_only_match_info (&search_regs);
 }
 
@@ -393,7 +398,7 @@ resolve_explicit_compiled_regexp (Lisp_Object regexp, bool posix,
 {
   /* If the regexp is precompiled, then immediately return its compiled form. */
   if (REGEXP_P (regexp))
-    return XREGEXP (regexp)->buffer;
+    return &XREGEXP (regexp)->buffer;
 
   /* Otherwise, this is a string, and we have to compile it via the cache. */
   CHECK_STRING (regexp);
@@ -665,7 +670,7 @@ fast_c_string_match_internal (Lisp_Object regexp,
   specpdl_ref count = SPECPDL_INDEX ();
 
   if (REGEXP_P (regexp))
-    eassert (!XREGEXP (regexp)->buffer->target_multibyte);
+    eassert (!XREGEXP (regexp)->buffer.target_multibyte);
   /* FIXME: This is expensive and not obviously correct when it makes
      a difference. I.e., no longer "fast", and may hide bugs.
      Something should be done about this.  */

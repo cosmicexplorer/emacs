@@ -146,11 +146,19 @@ struct thread_state
   /* Every call to re_search, etc., must pass &search_regs as the regs
      argument unless you can show it is unnecessary (i.e., if re_search
      is certainly going to be called again before region-around-match
-     can be called).
+     can be called). However, this is unnecessary if using precompiled
+     regexp and match objects with `make-regexp' and `make-match-data'.
 
      Since the registers are now dynamically allocated, we need to make
      sure not to refer to the Nth register before checking that it has
-     been allocated by checking search_regs.num_regs.
+     been allocated by checking search_regs.num_regs. This is *slightly*
+     less necessary with precompiled regexp and match objects, since:
+     (1) precompiled regexps know how many subexpressions they need, so
+	 they can set this to REGS_FIXED,
+     (2) further DEFUNs in regex-emacs.c allow explicit lisp-level
+	 control over allocating match object size,
+     but we still generally rely on the search methods checking
+     .num_regs, just not specifically from the search_regs thread-local.
 
      The regex code keeps track of whether it has allocated the search
      buffer using bits in the re_pattern_buffer.  This means that whenever
@@ -159,7 +167,9 @@ struct thread_state
      time you call a searching or matching function.  Therefore, we need
      to call re_set_registers after compiling a new pattern or after
      setting the match registers, so that the regex functions will be
-     able to free or re-allocate it properly.  */
+     able to free or re-allocate it properly. This is not an issue for
+     precompiled regexp objects, which set REGS_FIXED and can therefore
+     avoid dynamic allocation of match objects during matching.  */
   struct re_registers m_search_regs;
 #define search_regs (current_thread->m_search_regs)
 
