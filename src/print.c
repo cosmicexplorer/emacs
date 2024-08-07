@@ -2087,25 +2087,25 @@ print_vectorlike_unreadable (Lisp_Object obj, Lisp_Object printcharfun,
     case PVEC_REGEXP:
       {
 	struct Lisp_Regexp *r = XREGEXP (obj);
-	print_c_string ("#<regexp pattern=", printcharfun);
+	print_c_string ("#r(", printcharfun);
 	print_object (r->pattern, printcharfun, escapeflag);
-	int i = sprintf (buf, " nsub=%ld", r->buffer.re_nsub);
-	strout (buf, i, i, printcharfun);
-	print_c_string (" translate=", printcharfun);
-	print_object (r->buffer.translate, printcharfun, escapeflag);
-	print_c_string (" whitespace=", printcharfun);
-	print_object (r->whitespace_regexp, printcharfun, escapeflag);
-	print_c_string (" syntax_table=", printcharfun);
-	print_object (r->syntax_table, printcharfun, escapeflag);
 	if (r->posix)
+	  print_c_string (" t ", printcharfun);
+	else
+	  print_c_string (" nil ", printcharfun);
+	if (r->buffer.translate)
 	  {
-	    print_c_string (" posix=true", printcharfun);
+	    Lisp_Object translate = make_lisp_ptr (r->buffer.translate,
+						   Lisp_Vectorlike);
+	    print_object (translate, printcharfun, escapeflag);
 	  }
 	else
-	  {
-	    print_c_string (" posix=false", printcharfun);
-	  }
-	print_c_string (">", printcharfun);
+	  print_c_string ("nil", printcharfun);
+	printchar (' ', printcharfun);
+	print_object (r->whitespace_regexp, printcharfun, escapeflag);
+	printchar (' ', printcharfun);
+	print_object (r->syntax_table, printcharfun, escapeflag);
+	printchar (')', printcharfun);
       }
       return;
 
