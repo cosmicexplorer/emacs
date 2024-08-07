@@ -5389,6 +5389,119 @@ re_compile_pattern (const char *pattern, ptrdiff_t length,
   return re_error_msgid[ret];
 }
 
+static bool
+re_pattern_buffer_equal (struct re_pattern_buffer *buf1,
+			 struct re_pattern_buffer *buf2)
+{
+  eassert (buf1 != NULL);
+  eassert (buf2 != NULL);
+
+  if (buf1->charset_unibyte != buf2->charset_unibyte)
+    return false;
+  if (buf1->re_nsub != buf2->re_nsub)
+    return false;
+  if (buf1->can_be_null != buf2->can_be_null)
+    return false;
+  if (buf1->fastmap_accurate != buf2->fastmap_accurate)
+    return false;
+  if (buf1->used_syntax != buf2->used_syntax)
+    return false;
+  if (buf1->multibyte != buf2->multibyte)
+    return false;
+  if (buf1->target_multibyte != buf2->target_multibyte)
+    return false;
+
+  if (!(buf1->translate && buf2->translate)
+      && (buf1->translate || buf2->translate))
+    return false;
+
+  if (buf1->used != buf2->used)
+    return false;
+  eassert (buf1->used >= 0);
+  size_t buf_len = ((size_t) buf1->used) * (sizeof *buf1->buffer);
+  eassert (buf1->buffer != NULL);
+  eassert (buf2->buffer != NULL);
+  if (memcmp (buf1->buffer, buf2->buffer, buf_len) != 0)
+    return false;
+
+  if (buf1->fastmap_accurate)
+    {
+      if (!(buf1->fastmap && buf2->fastmap)
+	  && (buf1->fastmap || buf2->fastmap))
+	return false;
+      size_t fastmap_len = FASTMAP_SIZE * (sizeof *buf1->fastmap);
+      if (memcmp (buf1->fastmap, buf2->fastmap, fastmap_len) != 0)
+	return false;
+    }
+
+  if (buf1->translate)
+    {
+      Lisp_Object t1 = make_lisp_ptr (buf1->translate, Lisp_Vectorlike);
+      Lisp_Object t2 = make_lisp_ptr (buf2->translate, Lisp_Vectorlike);
+      if (NILP (Fequal (t1, t2)))
+	return false;
+    }
+
+  return true;
+}
+
+static bool
+re_registers_equal (struct re_registers *regs1,
+		    struct re_registers *regs2,
+		    ptrdiff_t up_to)
+{
+  eassert (regs1 != NULL);
+  eassert (regs2 != NULL);
+  eassert (up_to >= 0);
+
+  eassert (regs1->num_regs >= 0);
+  eassert (up_to <= regs1->num_regs);
+  eassert (regs2->num_regs >= 0);
+  eassert (up_to <= regs2->num_regs);
+  size_t len = ((size_t) up_to) * (sizeof *regs1->start);
+
+  if (memcmp (regs1->start, regs2->start, len) != 0)
+    return false;
+  if (memcmp (regs1->end, regs2->end, len) != 0)
+    return false;
+  return true;
+}
+
+bool compiled_regexp_equal (Lisp_Object o1, Lisp_Object o2)
+{
+  eassert (REGEXP_P (o1));
+  struct Lisp_Regexp *r1 = XREGEXP (o1);
+  eassert (REGEXP_P (o2));
+  struct Lisp_Regexp *r2 = XREGEXP (o2);
+
+  if (r1->posix != r2->posix)
+    return false;
+  if (NILP (Fequal (r1->pattern, r2->pattern)))
+    return false;
+  if (NILP (Fequal (r1->whitespace_regexp, r2->whitespace_regexp)))
+    return false;
+  if (NILP (Fequal (r1->syntax_table, r2->syntax_table)))
+    return false;
+
+  return re_pattern_buffer_equal (&r1->buffer, &r2->buffer);
+}
+
+bool match_object_equal (Lisp_Object o1, Lisp_Object o2)
+{
+  eassert (MATCH_P (o1));
+  struct Lisp_Match *m1 = XMATCH (o1);
+  eassert (MATCH_P (o2));
+  struct Lisp_Match *m2 = XMATCH (o2);
+
+  if (m1->initialized_regs != m2->initialized_regs)
+    return false;
+  if (!re_registers_equal (&m1->regs, &m2->regs, m1->initialized_regs))
+    return false;
+  if (NILP (Fequal (m1->haystack, m2->haystack)))
+    return false;
+  return true;
+}
+
 DEFUN ("make-regexp", Fmake_regexp, Smake_regexp, 1, 3, 0,
        doc: /* Compile a regexp object from string PATTERN.
 
