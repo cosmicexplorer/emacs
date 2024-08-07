@@ -2182,11 +2182,8 @@ dump_re_pattern_buffer (struct dump_context *ctx, const struct re_pattern_buffer
   /* `translate' being NULL produces an invalid object from
      `make_lisp_ptr()'. */
   if (bufp->translate)
-    {
-      const Lisp_Object translate =
-	make_lisp_ptr ((void *) &bufp->translate, Lisp_Vectorlike);
-      dump_field_lv (ctx, &out, bufp, &translate, WEIGHT_NORMAL);
-    }
+    dump_field_lv_rawptr (ctx, &out, bufp, &bufp->translate,
+			  Lisp_Vectorlike, WEIGHT_NORMAL);
 
   DUMP_FIELD_COPY (&out, bufp, re_nsub);
   DUMP_FIELD_COPY (&out, bufp, can_be_null);
