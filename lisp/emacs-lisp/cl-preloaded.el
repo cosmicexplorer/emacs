@@ -365,6 +365,20 @@ regardless if `funcall' would accept to call them."
 (cl--define-built-in-type tree-sitter-compiled-query atom)
 (cl--define-built-in-type tree-sitter-node atom)
 (cl--define-built-in-type tree-sitter-parser atom)
+(cl--define-built-in-type regexp atom
+  "Precompiled regexp object."
+  (pattern regexp-get-pattern-string)
+  (syntax-table regexp-get-syntax-table)
+  (whitespace-regexp regexp-get-whitespace-pattern)
+  (translate regexp-get-translation-table)
+  (nsub regexp-get-num-subexps)
+  (default-match-target regexp-get-default-match-data)
+  :predicate regexpp)
+(cl--define-built-in-type match atom
+  "Preallocated match object."
+  (num-registers match-num-registers)
+  (haystack match-get-haystack)
+  :predicate matchp)
 (when (fboundp 'user-ptrp)
   (cl--define-built-in-type user-ptr atom nil
                             ;; FIXME: Shouldn't it be called `user-ptr-p'?
