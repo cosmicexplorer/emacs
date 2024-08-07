@@ -135,7 +135,7 @@ INLINE_HEADER_END
    where `struct Lisp_Match' is defined, sigh. Defined in
    regex-emacs.c, luckily it doesn't matter for performance whether
    this is inlined. */
-struct regexp_match_info make_full_match_info (struct Lisp_Match *match);
+extern struct regexp_match_info make_full_match_info (struct Lisp_Match *match);
 
 /* Defined in search.c. */
 extern EMACS_INT search_buffer (Lisp_Object, ptrdiff_t, ptrdiff_t,
@@ -168,6 +168,10 @@ extern ptrdiff_t emacs_re_max_failures;
 extern ptrdiff_t emacs_re_safe_alloca;
 
 /* Declarations for routines.  */
+
+/* Implementations for 'equal: */
+extern bool compiled_regexp_equal (Lisp_Object, Lisp_Object);
+extern bool match_object_equal (Lisp_Object, Lisp_Object);
 
 /* Compile the regular expression PATTERN, with length LENGTH
    and syntax given by the global 're_syntax_options', into the buffer
