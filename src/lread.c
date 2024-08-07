@@ -3412,6 +3412,49 @@ record_from_list (Lisp_Object elems)
   return obj;
 }
 
+static Lisp_Object
+regexp_from_list (Lisp_Object elems, Lisp_Object readcharfun)
+{
+  Lisp_Object pattern = XCAR (elems);
+  Lisp_Object rest = XCDR (elems);
+
+  Lisp_Object posix = Qnil;
+  Lisp_Object translate = Qnil;
+  Lisp_Object whitespace = Qnil;
+  Lisp_Object syntax = Qnil;
+
+  if (!NILP (rest))
+    {
+      Lisp_Object maybe_posix = XCAR (rest);
+      rest = XCDR (rest);
+      posix = NILP (maybe_posix) ? Qnil : Qt;
+    }
+  if (!NILP (rest))
+    {
+      translate = XCAR (rest);
+      rest = XCDR (rest);
+    }
+  if (!NILP (rest))
+    {
+      whitespace = XCAR (rest);
+      rest = XCDR (rest);
+    }
+  if (!NILP (rest))
+    {
+      syntax = XCAR (rest);
+      rest = XCDR (rest);
+    }
+
+  if (!NILP (rest))
+    invalid_syntax ("#r", readcharfun);
+
+  return Fmake_regexp (pattern,
+		       posix,
+		       translate,
+		       whitespace,
+		       syntax);
+}
+
 /* Turn a reversed list into a vector.  */
 static Lisp_Object
 vector_from_rev_list (Lisp_Object elems)
@@ -3781,6 +3824,7 @@ enum read_entry_type
 
   RE_vector,			/* "[" (* OBJECT) */
   RE_record,			/* "#s(" (* OBJECT) */
+  RE_regexp,			/* "#r(" (* OBJECT) */
   RE_char_table,		/* "#^[" (* OBJECT) */
   RE_sub_char_table,		/* "#^^[" (* OBJECT) */
   RE_byte_code,			/* "#[" (* OBJECT) */
@@ -3848,6 +3892,7 @@ mark_lread (void)
 	  break;
 	case RE_vector:
 	case RE_record:
+	case RE_regexp:
 	case RE_char_table:
 	case RE_sub_char_table:
 	case RE_byte_code:
@@ -3991,6 +4036,16 @@ read0 (Lisp_Object readcharfun, bool locate_syms)
 	      obj = record_from_list (elems);
 	    break;
 	  }
+	case RE_regexp:
+	  {
+	    locate_syms = read_stack_top ()->u.vector.old_locate_syms;
+	    Lisp_Object elems = Fnreverse (read_stack_pop ()->u.vector.elems);
+	    if (NILP (elems))
+	      invalid_syntax ("#r", readcharfun);
+
+	    obj = regexp_from_list (elems, readcharfun);
+	    break;
+	  }
 	case RE_string_props:
 	  locate_syms = read_stack_top ()->u.vector.old_locate_syms;
 	  obj = string_props_from_rev_list (read_stack_pop () ->u.vector.elems,
@@ -4074,6 +4129,22 @@ read0 (Lisp_Object readcharfun, bool locate_syms)
 	      }
 	    read_stack_push ((struct read_stack_entry) {
 		.type = RE_record,
+		.u.vector.elems = Qnil,
+		.u.vector.old_locate_syms = locate_syms,
+	      });
+	    locate_syms = false;
+	    goto read_obj;
+
+	  case 'r':
+	    /* #r(...) -- a compiled regexp */
+	    READ_AND_BUFFER (ch);
+	    if (ch != '(')
+	      {
+		UNREAD (ch);
+		INVALID_SYNTAX_WITH_BUFFER ();
+	      }
+	    read_stack_push ((struct read_stack_entry) {
+		.type = RE_regexp,
 		.u.vector.elems = Qnil,
 		.u.vector.old_locate_syms = locate_syms,
 	      });
@@ -4535,6 +4606,7 @@ read0 (Lisp_Object readcharfun, bool locate_syms)
 
 	case RE_vector:
 	case RE_record:
+	case RE_regexp:
 	case RE_char_table:
 	case RE_sub_char_table:
 	case RE_byte_code:
