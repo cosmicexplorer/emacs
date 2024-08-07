@@ -5502,7 +5502,7 @@ bool match_object_equal (Lisp_Object o1, Lisp_Object o2)
   return true;
 }
 
-DEFUN ("make-regexp", Fmake_regexp, Smake_regexp, 1, 3, 0,
+DEFUN ("make-regexp", Fmake_regexp, Smake_regexp, 1, 5, 0,
        doc: /* Compile a regexp object from string PATTERN.
 
 POSIX is non-nil if we want full backtracking (POSIX style) for
@@ -5510,10 +5510,13 @@ this pattern.
 TRANSLATE is a translation table for ignoring case, or t to look up from
 the current buffer at compile time if `case-fold-search' is on, or nil
 for none.
-
-The value of `search-spaces-regexp' is looked up in order to translate
-literal space characters in PATTERN. */)
-  (Lisp_Object pattern, Lisp_Object posix, Lisp_Object translate)
+If WHITESPACE is nil, then the value of `search-spaces-regexp' is looked
+up in order to translate literal space characters in PATTERN.
+If SYNTAX is nil, then the current buffer's syntax table is looked up,
+depending on whether PATTERN uses syntax tables. If not, the syntax
+table is to set t. */)
+  (Lisp_Object pattern, Lisp_Object posix, Lisp_Object translate,
+   Lisp_Object whitespace, Lisp_Object syntax)
 {
   const char *whitespace_regexp = NULL;
   char *val = NULL;
@@ -5521,16 +5524,24 @@ literal space characters in PATTERN. */)
   struct Lisp_Regexp *p = NULL;
   struct re_pattern_buffer re_buf = { 0 };
 
-  if (!NILP (Vsearch_spaces_regexp))
-    {
-      CHECK_STRING (Vsearch_spaces_regexp);
-      whitespace_regexp = SSDATA (Vsearch_spaces_regexp);
-    }
-
   if (EQ(translate, Qt))
     translate = (!NILP (Vcase_fold_search)
 		 ? BVAR (current_buffer, case_canon_table)
 		 : Qnil);
+
+  if (EQ(whitespace, Qt))
+    {
+      if (!NILP (Vsearch_spaces_regexp))
+	{
+	  CHECK_STRING (Vsearch_spaces_regexp);
+	  whitespace_regexp = SSDATA (Vsearch_spaces_regexp);
+	}
+    }
+  else if (STRINGP (whitespace))
+    whitespace_regexp = SSDATA (whitespace);
+
+  if (EQ (syntax, Qt))
+    syntax = BVAR (current_buffer, syntax_table);
 
   CHECK_STRING (pattern);
 
@@ -5552,10 +5563,10 @@ literal space characters in PATTERN. */)
   p = ALLOCATE_PSEUDOVECTOR (struct Lisp_Regexp, default_match_target,
 			     PVEC_REGEXP);
   p->pattern = pattern;
-  p->whitespace_regexp = Vsearch_spaces_regexp;
+  p->whitespace_regexp = whitespace;
   /* If the compiled pattern hard codes some of the contents of the
      syntax-table, it can only be reused with *this* syntax table.  */
-  p->syntax_table = re_buf.used_syntax ? BVAR (current_buffer, syntax_table) : Qt;
+  p->syntax_table = re_buf.used_syntax ? syntax : Qt;
   p->posix = is_posix;
 
   /* Allocate the match data implicitly stored in this regexp. */
