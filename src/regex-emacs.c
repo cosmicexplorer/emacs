@@ -5604,6 +5604,15 @@ DEFUN ("regexp-get-whitespace-pattern", Fregexp_get_whitespace_pattern,
   return XREGEXP (regexp)->whitespace_regexp;
 }
 
+DEFUN ("regexp-get-syntax-table", Fregexp_get_syntax_table,
+       Sregexp_get_syntax_table, 1, 1, 0,
+       doc: /* Get the syntax table used to compile REGEXP. */)
+  (Lisp_Object regexp)
+{
+  CHECK_REGEXP (regexp);
+  return XREGEXP (regexp)->syntax_table;
+}
+
 DEFUN ("regexp-get-translation-table", Fregexp_get_translation_table,
        Sregexp_get_translation_table, 1, 1, 0,
        doc: /* Get the translation table for case folding used to compile REGEXP. */)
@@ -6189,6 +6198,7 @@ void syms_of_regexp (void)
   defsubr (&Sregexp_get_pattern_string);
   defsubr (&Sregexp_posix_p);
   defsubr (&Sregexp_get_whitespace_pattern);
+  defsubr (&Sregexp_get_syntax_table);
   defsubr (&Sregexp_get_translation_table);
   defsubr (&Sregexp_get_num_subexps);
   defsubr (&Sregexp_get_default_match_data);
