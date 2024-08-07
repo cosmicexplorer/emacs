@@ -5895,73 +5895,6 @@ make_pure_c_string (const char *data, ptrdiff_t nchars)
 
 static Lisp_Object purecopy (Lisp_Object obj);
 
-static struct re_pattern_buffer
-make_pure_re_pattern_buffer (const struct re_pattern_buffer *bufp)
-{
-  struct re_pattern_buffer pure = *bufp;
-
-  pure.buffer = pure_alloc (bufp->used, -1);
-  memcpy (pure.buffer, bufp->buffer, bufp->used);
-  pure.allocated = bufp->used;
-  /* The fastmap is sometimes unset when using the `regexp_cache'. */
-  if (pure.fastmap)
-    {
-      pure.fastmap = pure_alloc (FASTMAP_SIZE, -1);
-      memcpy (pure.fastmap, bufp->fastmap, FASTMAP_SIZE);
-    }
-  /* `translate' being NULL produces an invalid object from
-     `make_lisp_ptr()'. */
-  if (pure.translate)
-    {
-      const Lisp_Object translate =
-	make_lisp_ptr (bufp->translate, Lisp_Vectorlike);
-      pure.translate = XLP (purecopy (translate));
-    }
-
-  return pure;
-}
-
-static Lisp_Object
-make_pure_regexp (const struct Lisp_Regexp *r)
-{
-  struct Lisp_Regexp *pure = pure_alloc (sizeof *pure, Lisp_Vectorlike);
-  *pure = *r;
-
-  pure->pattern = purecopy (r->pattern);
-  pure->whitespace_regexp = purecopy (r->whitespace_regexp);
-  pure->syntax_table = purecopy (r->syntax_table);
-  pure->default_match_target = purecopy (r->default_match_target);
-  pure->buffer = make_pure_re_pattern_buffer (&r->buffer);
-
-  return make_lisp_ptr (pure, Lisp_Vectorlike);
-}
-
-static struct re_registers
-make_pure_re_registers (const struct re_registers *regs)
-{
-  struct re_registers pure = *regs;
-
-  ptrdiff_t reg_size = regs->num_regs * sizeof (ptrdiff_t);
-  pure.start = pure_alloc (reg_size, -1);
-  memcpy (pure.start, regs->start, reg_size);
-  pure.end = pure_alloc (reg_size, -1);
-  memcpy (pure.end, regs->end, reg_size);
-
-  return pure;
-}
-
-static Lisp_Object
-make_pure_match (const struct Lisp_Match *m)
-{
-  struct Lisp_Match *pure = pure_alloc (sizeof *pure, Lisp_Vectorlike);
-  *pure = *m;
-
-  pure->haystack = purecopy (m->haystack);
-  pure->regs = make_pure_re_registers (&m->regs);
-
-  return make_lisp_ptr (pure, Lisp_Vectorlike);
-}
-
 /* Return a cons allocated from pure space.  Give it pure copies
    of CAR as car and CDR as cdr.  */
 
@@ -6092,6 +6025,18 @@ static struct pinned_object
   struct pinned_object *next;
 } *pinned_objects;
 
+/* Add obj to the list of pinned objects, so that it will be marked
+   during GC. */
+static Lisp_Object
+pin_object (Lisp_Object obj)
+{
+  struct pinned_object *o = xmalloc (sizeof *o);
+  o->object = obj;
+  o->next = pinned_objects;
+  pinned_objects = o;
+  return obj;
+}
+
 static Lisp_Object
 purecopy (Lisp_Object obj)
 {
@@ -6119,10 +6064,8 @@ purecopy (Lisp_Object obj)
     obj = make_pure_string (SSDATA (obj), SCHARS (obj),
 			    SBYTES (obj),
 			    STRING_MULTIBYTE (obj));
-  else if (REGEXP_P (obj))
-    obj = make_pure_regexp (XREGEXP (obj));
-  else if (MATCH_P (obj))
-    obj = make_pure_match (XMATCH (obj));
+  else if (REGEXP_P (obj) || MATCH_P (obj))
+    return pin_object (obj); /* Don't hash cons it.  */
   else if (HASH_TABLE_P (obj))
     {
       struct Lisp_Hash_Table *table = XHASH_TABLE (obj);
@@ -6130,15 +6073,9 @@ purecopy (Lisp_Object obj)
          :purecopy as non-nil or are weak - they aren't guaranteed to
          not change.  */
       if (table->weakness != Weak_None || !table->purecopy)
-        {
-          /* Instead, add the hash table to the list of pinned objects,
-             so that it will be marked during GC.  */
-          struct pinned_object *o = xmalloc (sizeof *o);
-          o->object = obj;
-          o->next = pinned_objects;
-          pinned_objects = o;
-          return obj; /* Don't hash cons it.  */
-        }
+	/* Instead, add the hash table to the list of pinned objects,
+	   so that it will be marked during GC.  */
+	return pin_object (obj); /* Don't hash cons it.  */
 
       obj = make_lisp_hash_table (purecopy_hash_table (table));
     }
