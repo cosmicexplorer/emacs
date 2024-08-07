@@ -38,6 +38,7 @@ along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "window.h"
 #include "puresize.h"
 #include "gnutls.h"
+#include "regex-emacs.h"
 
 #ifdef HAVE_TREE_SITTER
 #include "treesit.h"
@@ -2958,6 +2959,12 @@ internal_equal_1 (Lisp_Object o1, Lisp_Object o2, enum equal_kind equal_kind,
 				XSYMBOL_WITH_POS_POS (o2)));
 	  }
 
+	if (MATCH_P (o1))
+	  return match_object_equal (o1, o2);
+
+	if (REGEXP_P (o2))
+	  return compiled_regexp_equal (o1, o2);
+
 	/* Aside from them, only true vectors, char-tables, compiled
 	   functions, and fonts (font-spec, font-entity, font-object)
 	   are sensible to compare, so eliminate the others now.  */
@@ -5472,6 +5479,99 @@ sxhash_vector (Lisp_Object vec, int depth)
   return hash;
 }
 
+static EMACS_UINT
+sxhash_re_pattern_buffer (struct re_pattern_buffer *bufp)
+{
+  eassert (bufp != NULL);
+  eassert (bufp->used >= 0);
+  eassert (bufp->used <= MOST_POSITIVE_FIXNUM);
+
+  EMACS_UINT hash = (EMACS_UINT) bufp->used;
+  hash = sxhash_combine (hash, bufp->charset_unibyte);
+  hash = sxhash_combine (hash, bufp->re_nsub);
+  hash = sxhash_combine (hash, bufp->can_be_null);
+  hash = sxhash_combine (hash, bufp->fastmap_accurate);
+  hash = sxhash_combine (hash, bufp->used_syntax);
+  hash = sxhash_combine (hash, bufp->multibyte);
+  hash = sxhash_combine (hash, bufp->target_multibyte);
+
+  if (bufp->translate)
+    {
+      Lisp_Object translate =
+	make_lisp_ptr (bufp->translate, Lisp_Vectorlike);
+      hash = sxhash_combine (hash, sxhash_obj (translate, 0));
+    }
+  if (bufp->fastmap)
+    {
+      ptrdiff_t fastmap_len = FASTMAP_SIZE * (sizeof *bufp->fastmap);
+      EMACS_UINT fastmap_hash =
+	hash_string (bufp->fastmap, fastmap_len);
+      hash = sxhash_combine (hash, fastmap_hash);
+    }
+  eassert (bufp->buffer != NULL);
+  EMACS_UINT buffer_hash =
+    hash_string ((char *) bufp->buffer, bufp->used);
+  hash = sxhash_combine (hash, buffer_hash);
+  return hash;
+}
+
+/* Return a hash for compiled regexp REGEXP.  */
+
+static EMACS_UINT
+sxhash_regexp (Lisp_Object regexp)
+{
+  eassert (REGEXP_P (regexp));
+  struct Lisp_Regexp *r = XREGEXP (regexp);
+
+  EMACS_UINT hash = sxhash_obj (r->pattern, 0);
+  hash = sxhash_combine (hash, sxhash_obj (r->whitespace_regexp, 0));
+  hash = sxhash_combine (hash, sxhash_obj (r->syntax_table, 0));
+  hash = sxhash_combine (hash, r->posix);
+  hash = sxhash_combine (hash, sxhash_re_pattern_buffer (&r->buffer));
+  return hash;
+}
+
+static EMACS_UINT
+sxhash_re_registers (struct re_registers *regs, ptrdiff_t up_to)
+{
+  eassert (regs != NULL);
+  eassert (regs->num_regs >= 0);
+  eassert (up_to >= 0);
+  eassert (up_to <= regs->num_regs);
+  eassert (up_to <= MOST_POSITIVE_FIXNUM);
+
+  EMACS_UINT hash = (EMACS_UINT) up_to;
+  int n = min (SXHASH_MAX_LEN, hash);
+  for (int i = 0; i < n; ++i)
+    {
+      ptrdiff_t cur_start = regs->start[i];
+      EMACS_UINT start_hash = ((cur_start == -1)
+			       ? MOST_POSITIVE_FIXNUM
+			       : (EMACS_UINT) cur_start);
+      ptrdiff_t cur_end = regs->end[i];
+      EMACS_UINT end_hash = ((cur_end == -1)
+			       ? MOST_POSITIVE_FIXNUM
+			       : (EMACS_UINT) cur_end);
+      EMACS_UINT cur_hash = sxhash_combine (start_hash, end_hash);
+      hash = sxhash_combine (hash, cur_hash);
+    }
+  return hash;
+}
+
+/* Return a hash for match object MATCH.  */
+
+static EMACS_UINT
+sxhash_match (Lisp_Object match)
+{
+  eassert (MATCH_P (match));
+  struct Lisp_Match *m = XMATCH (match);
+
+  EMACS_UINT hash = sxhash_obj (m->haystack, 0);
+  hash = sxhash_combine
+    (hash, sxhash_re_registers (&m->regs, m->initialized_regs));
+  return hash;
+}
+
 /* Return a hash for bool-vector VECTOR.  */
 
 static EMACS_UINT
@@ -5565,6 +5665,10 @@ sxhash_obj (Lisp_Object obj, int depth)
 	    hash = sxhash_combine (hash, sxhash_obj (XOVERLAY (obj)->plist, depth));
 	    return hash;
 	  }
+	else if (pvec_type == PVEC_REGEXP)
+	  return sxhash_regexp (obj);
+	else if (pvec_type == PVEC_MATCH)
+	  return sxhash_match (obj);
 	else
 	  {
 	    if (symbols_with_pos_enabled && pvec_type == PVEC_SYMBOL_WITH_POS)
