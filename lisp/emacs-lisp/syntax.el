@@ -359,7 +359,8 @@ all RULES in total."
                (cl-incf offset (regexp-opt-depth orig-re))
                re))
            rules
-           "\\|")))
+           "\\|"))
+         (re (make-regexp re)))
     `(lambda (start end)
        (goto-char start)
        (while (and (< (point) end)
