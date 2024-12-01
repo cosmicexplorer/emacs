@@ -1,4 +1,5 @@
-#+TITLE:	Emacs regex compilation and future directions for expressive pattern matching
+#+TITLE:	Emacs regex compilation
+#+SUBTITLE:	future directions for expressive pattern matching
 #+AUTHOR:	Danny McClanahan
 #+EMAIL:	dmc2@hypnicjerk.ai
 
@@ -22,8 +23,6 @@
 #+latex_header: \mode<beamer>{\usetheme{Madrid}}
 #+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Topic}\tableofcontents[currentsection]\end{frame}}
 
-#+subtitle:
-
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
 #+latex_compiler: pdflatex
@@ -37,3 +36,36 @@
 * Section B
 ** ok
 ** me too!
+
+* Outline
+1. What is a regular expression? When and how does implementation match formal theory?
+2. What are regexps used for? How do Emacs users use them?
+3. How do regex-emacs.c and search.c invoke the regex engine from lisp code?
+4. What does Emacs require from a regex engine? How does that differ from other engines?
+  - What is the input to the regex engine? When and how does the multibyte encoding come into play?
+5. Future Directions: Introspection, Composability, and Optimization
+
+* This is the first structural section
+
+** Frame 1
+*** Thanks to Eric Fraga                                           :B_block:
+    :PROPERTIES:
+    :BEAMER_COL: 0.48
+    :BEAMER_ENV: block
+    :END:
+    for the first viable Beamer setup in Org
+*** Thanks to everyone else                                        :B_block:
+    :PROPERTIES:
+    :BEAMER_COL: 0.48
+    :BEAMER_ACT: <2->
+    :BEAMER_ENV: block
+    :END:
+    for contributing to the discussion
+**** This will be formatted as a beamer note                       :B_note:
+     :PROPERTIES:
+     :BEAMER_env: note
+     :END:
+
+** Frame 2 (where we will not use columns)
+*** Request
+    Please test this stuff!
