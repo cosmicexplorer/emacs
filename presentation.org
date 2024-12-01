@@ -21,7 +21,7 @@
 #+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
 
 #+latex_header: \mode<beamer>{\usetheme{Madrid}}
-#+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Topic}\tableofcontents[currentsection]\end{frame}}
+#+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Topic: \secname}\tableofcontents[currentsection]\end{frame}}
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
@@ -30,12 +30,12 @@
 #+date: \today
 
 * What is a regular expression? When and how does implementation match formal theory?
-** a
+** "Don't parse HTML with regex"
 *** a1
 ok
 *** a2
 i get that
-** a2
+** C Lexer Hack
 ok1
 * What are regexps used for? How do Emacs users use them?
 ** b
@@ -54,28 +54,3 @@ So a more complex picture begins to emerge: Emacs actually uses regexps far more
 There are many branching paths here. With the libgccjit native compiler, we can now implement regex matching in lisp itself. While `rx' can compose patterns to an extent, we could provide a more powerful primitive than regular expressions alone for complex parsing tasks. And while many regex engines employ complex optimization heuristics, we can instead introduce specific functionality for e.g. SIMD literal search into lisp code, allowing lisp users to intelligently select for themselves how and when to employ less-powerful but more-performant search routines.
 
 We don't need to backtrack! We can try all these paths at once.
-
-* This is the first structural section
-
-** Frame 1
-*** Thanks to Eric Fraga                                           :B_block:
-    :PROPERTIES:
-    :BEAMER_COL: 0.48
-    :BEAMER_ENV: block
-    :END:
-    for the first viable Beamer setup in Org
-*** Thanks to everyone else                                        :B_block:
-    :PROPERTIES:
-    :BEAMER_COL: 0.48
-    :BEAMER_ACT: <2->
-    :BEAMER_ENV: block
-    :END:
-    for contributing to the discussion
-**** This will be formatted as a beamer note                       :B_note:
-     :PROPERTIES:
-     :BEAMER_env: note
-     :END:
-
-** Frame 2 (where we will not use columns)
-*** Request
-    Please test this stuff!
