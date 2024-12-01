@@ -29,21 +29,27 @@
 
 #+date: \today
 
-* Section A
-** Subplot
-** Resolved!
-
-* Section B
-** ok
-** me too!
-
-* Outline
-1. What is a regular expression? When and how does implementation match formal theory?
-2. What are regexps used for? How do Emacs users use them?
-3. How do regex-emacs.c and search.c invoke the regex engine from lisp code?
-4. What does Emacs require from a regex engine? How does that differ from other engines?
-  - What is the input to the regex engine? When and how does the multibyte encoding come into play?
-5. Future Directions: Introspection, Composability, and Optimization
+* What is a regular expression? When and how does implementation match formal theory?
+** a
+*** a1
+ok
+*** a2
+i get that
+** a2
+ok1
+* What are regexps used for? How do Emacs users use them?
+** b
+ok2
+* How do regex-emacs.c and search.c invoke the regex engine from lisp code?
+** c
+ok3
+* What does Emacs require from a regex engine? How does that differ from other engines?
+ok4
+** What is the input to the regex engine? When and how does the multibyte encoding come into play?
+ok5
+* Future Directions: Introspection, Composability, and Optimization
+** d
+ok6
 
 * This is the first structural section
 
