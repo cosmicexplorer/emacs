@@ -1,0 +1,39 @@
+#+TITLE:	Emacs regex compilation and future directions for expressive pattern matching
+#+AUTHOR:	Danny McClanahan
+#+EMAIL:	dmc2@hypnicjerk.ai
+
+#+DESCRIPTION:
+#+KEYWORDS:
+
+#+LANGUAGE: en
+
+#+STARTUP: beamer
+#+LaTeX_CLASS: beamer
+#+LaTeX_CLASS_OPTIONS: [presentation]
+
+#+options: ':nil *:t -:t ::t <:t H:3 \n:nil ^:t arch:headline author:t
+#+options: e:t email:nil expand-links:t f:t inline:t num:t p:nil
+#+options: pri:nil prop:nil stat:t tags:t tasks:t tex:t timestamp:t
+#+options: title:t toc:t todo:t |:t TeX:t LaTeX: t
+
+#+OPTIONS: H:2
+#+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
+
+#+latex_header: \mode<beamer>{\usetheme{Madrid}}
+#+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Topic}\tableofcontents[currentsection]\end{frame}}
+
+#+subtitle:
+
+#+latex_footnote_command: \footnote{%s%s}
+#+latex_engraved_theme:
+#+latex_compiler: pdflatex
+
+#+date: \today
+
+* Section A
+** Subplot
+** Resolved!
+
+* Section B
+** ok
+** me too!
