@@ -39,17 +39,21 @@ i get that
 ok1
 * What are regexps used for? How do Emacs users use them?
 ** b
-ok2
+Emacs is a delightful case study for the capabilities of regular expressions, because Emacs forms user interfaces via text, which retains the expressivity of a GUI with the user-level interactivity of written language. Because we use text for both input and output, regexps in Emacs form part of a user-level grammar for human thought. As a result, Emacs and Emacs users have a rich intuitive grasp of regular expressions, which provides a unique vantage point to consider how they may be improved in general.
 * How do regex-emacs.c and search.c invoke the regex engine from lisp code?
 ** c
 ok3
 * What does Emacs require from a regex engine? How does that differ from other engines?
-ok4
+When I began my investigation, I assumed that Emacs would be able to use an existing off-the-shelf regex engine, that this would be more performant than regex-emacs.c, and that the greatest challenge would be providing a sufficiently robust build process (see emacs-devel: https://lists.gnu.org/archive/html/emacs-devel/2024-04/msg00142.html). However, I quickly found that Emacs (as usual) is far more configurable than alternatives (see rust regex discussion: https://github.com/rust-lang/regex/discussions/1167#discussioncomment-8585027). Now don't get this twisted: emacs-devel was open to deprecating functionality that hampered optimization! But the biggest challenge by far is that regex-emacs.c is categorically more powerful than alternatives: it can match against non-contiguous input (across both halves of the gap buffer), as well as non-UTF8 text with its fantastic multibyte encoding (see https://www.gnu.org/software/emacs/manual/html_node/elisp/Text-Representations.html).
+
 ** What is the input to the regex engine? When and how does the multibyte encoding come into play?
-ok5
+So a more complex picture begins to emerge: Emacs actually uses regexps far more widely and deeply than anywhere else, and its regex engine requirements aren't "legacy", but the result of caring more deeply about language than anywhere else. While regex engines have historically been known to introduce functionality not backed by formal theory that's later found to be hard to optimize, Emacs instead charts a path for other engines to follow. Formalizing backrefs is state-of-the-art, but possible (see https://jamiejennings.com/posts/2021-09-23-dont-look-back-2/), and I believe the same can be achieved for the other affordances Emacs users have come to expect. Subsequently, I have focused on identifying where we can constrain the problem space to improve performance without losing those affordances, such as explicit precompilation in lisp code (see https://lists.gnu.org/archive/html/emacs-devel/2024-08/msg00108.html).
+
 * Future Directions: Introspection, Composability, and Optimization
 ** d
-ok6
+There are many branching paths here. With the libgccjit native compiler, we can now implement regex matching in lisp itself. While `rx' can compose patterns to an extent, we could provide a more powerful primitive than regular expressions alone for complex parsing tasks. And while many regex engines employ complex optimization heuristics, we can instead introduce specific functionality for e.g. SIMD literal search into lisp code, allowing lisp users to intelligently select for themselves how and when to employ less-powerful but more-performant search routines.
+
+We don't need to backtrack! We can try all these paths at once.
 
 * This is the first structural section
 
