@@ -2,6 +2,7 @@
 #+SUBTITLE:	future directions for expressive pattern matching
 #+AUTHOR:	Danny McClanahan
 #+EMAIL:	dmc2@hypnicjerk.ai
+#+DATE:		\today
 
 #+DESCRIPTION:
 #+KEYWORDS:
@@ -26,8 +27,6 @@
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
 #+latex_compiler: pdflatex
-
-#+date: \today
 
 * What is a regular expression? When and how does implementation match formal theory?
 ** regex is often implementation-defined
@@ -68,6 +67,15 @@ So a more complex picture begins to emerge: Emacs actually uses regexps far more
 ok3
 
 * Future Directions: Introspection, Composability, and Optimization
+** ~emacs-devel~
+~emacs-devel~ noted several places where the regex engine was causing problems, and proposed separate solutions for each
+
+** introspection
+
+** composability
+
+** optimization
+
 ** d
 There are many branching paths here. With the libgccjit native compiler, we can now implement regex matching in lisp itself. While `rx' can compose patterns to an extent, we could provide a more powerful primitive than regular expressions alone for complex parsing tasks. And while many regex engines employ complex optimization heuristics, we can instead introduce specific functionality for e.g. SIMD literal search into lisp code, allowing lisp users to intelligently select for themselves how and when to employ less-powerful but more-performant search routines.
 
