@@ -42,7 +42,7 @@ Because ~emacs-devel~ has taught me so much and I'm about to bowdlerize it all t
 - spent a lot of time learning much of this from ~emacs-devel~
   - was super confused about a lot of dynamics
 - thought this would be a matter of just updating the regex engine to use modern techniques
-  - turns out the emacs regex engine has features that don't exist in other engines (especially non-contiguous input)
+  - turns out the emacs regex engine has features that don't exist in other engines (such as non-contiguous input)
 - then thought caching compilation would be enough
   - turns out it's hard to cache
 - then i learned about other larger goals for the regex engine which happened to overlap a lot with my own research interests
@@ -119,9 +119,6 @@ As an auxiliary form of logic, to construct the user-level grammar for human tho
   - This is why we have elisp, a language tightly integrated with text operations from the editor.
 - Because text forms UI, /parsing/ and /text search/ can be employed not just to edit code, but to construct a user interface from text input.
   - This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.
-- *MORE!!!!*
-  - something about buffers as a low-level data structure
-  - something about text properties!!!
 
 ** Who Says Text is Empowering?
 Not everyone thinks text is empowering! Formal theory thinks nobody should be allowed to parse text without their tools! But their tools don't even attempt to solve major concerns:
@@ -171,7 +168,7 @@ So why are we talking about regex here? Mainly:
 For the interactive experiences that Emacs excels at, regex provides a powerful language /for both input and output/:
 - it can be synthesized hygienically from elisp code via ~rx~, either statically at load time or dynamically at run time!
 - it can be received or transformed from user input to specify powerful queries over complex data!
-  - *TODO: see ~f3~, ~helm-rg~*
+  - *see ~f3~, ~helm-rg~, ~telepathygrams~ at end*
 
 ...but this might require going beyond "regex" alone!
 
@@ -195,9 +192,15 @@ In two ways:
 - over a single contiguous string input,
 - over the two halves of the gap buffer.
 
-** ~regex-emacs.c~
+** ~regex-emacs~
 - describe ~re_pattern_buffer~
-- vaguely describe the matching logic
+- /vaguely describe the matching logic:/
+  - sets the pointer to current and next char
+  - read instruction from instruction pointer
+  - big switch statement for the next instruction from the compiled pattern
+  - increment both pointers as well as the instruction pointer (if instruction was not a jump)
+- non-contiguous matching over the two halves of the gap buffer is supported by checking at each point whether we have progressed to the end of the first half, and then switching over to the second half
+  - this allows the same code to be used for single-string search, as it simply avoids checking a NULL second pointer and only checks if we've reached the end of the first input
 
 ** Multibyte
 - It turns out this actually isn't terribly relevant to the regex engine!
@@ -208,9 +211,11 @@ In two ways:
 
 ** Case-folding
 - If ~case-fold-search~ is non-nil, look up the C-level buffer-local ~case_canon_table~.
+  - Look up and translate each input character through this char-table.
 
 ** Char-folding
-a
+- Not done in the regex engine itself!
+- ~char-fold.el~ instead /generates/ a regex pattern string.
 
 ** Mode-specific Syntax
 - ~\w~ / ~\W~, ~\s<code>~ / ~\S<code>~, ~\b~ / ~\B~, ~\<~ / ~\>~, ~\_<~ / ~\_>~
@@ -218,58 +223,55 @@ a
   - https://www.gnu.org/software/emacs/manual/html_node/elisp/Syntax-Class-Table.html
 - ~used_syntax~ in ~re_pattern_buffer~
 
-** Non-Contiguous Matching (Gap Buffer)
-c
-
-** Transparent Compilation Cache
-d
-
-** ~match-data~ List
-e
-
-** ~search.c~ Dispatches to ~regex-emacs.c~
-- checks if the regex string is a pure literal, then dispatches to a literal search engine with an entirely separate code path
-
 * How could we do regex better in Emacs? How could Emacs do regex better than anywhere else?
 ** Answer
+This section will describe several potential paths we might investigate:
+
 *** How could we do regex better in Emacs?
 - introspection
 - optimization
 *** How could Emacs do regex better than anywhere else?
+- explicit control over linguistic complexity
 - libraries of composeable patterns
-- IR for text manipulation
 
-** In Emacs: Introspection
+** Separately-Compiled Regexps
+- precompile regexps to enable more powerful compilation techniques
+  - have demonstrated this in a test branch: https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex
+  - artificial benchmarks show an improvement, but haven't been able to produce apples-to-apples comparison yet
+  - syntax highlighting would be the most appropriate, but caching these compiles currently makes syntax parsing fail
+
+** Match Over Bytes, not Chars
+- match over bytes, not chars
+  - char-by-char varint decoding of multibyte/utf8 is comparatively slow
+    - this is the reason go's "re2" is much much slower than the c++ re2 library
+  - we can do this work at compile time instead, generating a larger automaton in order to be able to think in terms of byte ranges instead
+    - this is already what we do for e.g. char-folding
+    - this is a necessary prerequisite for SIMD instructions
+
+** Expose SIMD literal search
+- expose SIMD literal search
+  - this is used as a "prefilter" optimization in high-performance regex engines
+    - https://github.com/BurntSushi/rebar
+  - this is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton
+
+** Explicit Control over Linguistic Complexity
+- more generally, expose APIs that enforce a strict degree of linguistic complexity
+  - searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid
+    - searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA
+  - we already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer, but this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics
+    - this also involves an entirely separate code path
+  - backrefs are a special case on the other end of complexity
+    - recently formalized: https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/
+
+** Introspection
 - the compiled form of the regexp in ~re_pattern_buffer~ can be /executed/, but not really /introspected/
   - no form of "IR": this also contributes to the difficulty of composing patterns together
   - this is largely because it's implemented in C
 - we have libgccjit now: why not implement the regex engine itself in lisp???
   - proposal from Pip Cet (CHECK!) on ~emacs-devel~
   - biggest issue for optimization: lisp code (or native modules) can't access or operate on the separate halves of the gap buffer
-- this feeds into the "libraries of composeable patterns" discussion for the future
 
-** In Emacs: Optimization
-- precompile regexps to enable more powerful compilation techniques
-  - have demonstrated this in a test branch: https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex
-  - artificial benchmarks show an improvement, but haven't been able to produce apples-to-apples comparison yet
-  - syntax highlighting would be the most appropriate, but caching these compiles currently makes syntax parsing fail
-
-- match over bytes, not chars
-  - char-by-char varint decoding of multibyte/utf8 is comparatively slow
-    - this is the reason go's "re2" is much much slower than the c++ re2 library
-  - we can do this work at compile time instead, generating a larger automaton in order to be able to think in terms of byte ranges instead
-    - this is a necessary prerequisite for SIMD instructions
-
-- SIMD literal search is used as a "prefilter" optimization in high-performance regex engines
-  - https://github.com/BurntSushi/rebar
-  - this is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton
-- more generally, expose APIs that enforce a strict degree of linguistic complexity
-  - searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid
-    - searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA
-  - backrefs are a special case on the other end of complexity
-    - recently formalized: https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/
-
-** Emacs as Prototype: Libraries of Composeable Patterns
+** Libraries of Composeable Patterns
 - ~rx~ is a really fantastic precedent for this with regexps alone
 - The Rosie Pattern Language (https://rosie-lang.org) by Prof. Jamie Jennings at NCSU offers an example of:
   - how to compose non-regular patterns,
@@ -278,11 +280,15 @@ e
   - New elisp constructs means C code or some other dependency.
   - Integration into ~pcase~ could achieve a form of type safety along with interleaving lisp-level matching logic.
 
-** Emacs as Prototype: IR for Text Manipulation
+* Current and Future Work
+** ~helm-rg~
+a
 
+** ~f3~
+b
 
-- emacs can drive this for an external tool
-  - i'm working on a code search tool that precompiles a database to execute NFAs against
+** ~telepathygrams~
+- i'm working on a code search tool that precompiles a database to execute NFAs against
   - basically etags but an n-gram index instead of a symbol index
 
 # this needs to be about:
