@@ -22,11 +22,12 @@
 #+OPTIONS: H:2
 #+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
 
+#+latex_header: \usepackage{twemojis}
 #+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Question}\tableofcontents[currentsection]\end{frame}}
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
-#+latex_compiler: pdflatex
+#+latex_compiler: lualatex
 
 * What is a regular expression? When and how does implementation match formal theory?
 ** Answer
@@ -83,12 +84,44 @@ All variety of text search and parsing tasks!
 *** How do Emacs users use them?
 As an auxiliary form of logic, to construct the user-level grammar for human thought that Emacs provides: text as input and output.
 
-** a
+** Aside: Why is Text Powerful?
+
+- The reason text programming languages are successful is because text is both input (readable) and output (writable).
+  - This makes text an extremely empowering and accessible framework to navigate and manipulate program code.
+- If there are elements only accessible via a GUI IDE, the developer of the GUI IDE can then exert arbitrary control over your programming output.
+  - This kind of dependency is also the goal of statistical models used for text generation such as LLMs, as one among many attempts to subjugate local development to cloud services.
+- If you are unable to meaningfully edit parts of the code without interacting with a black-box external system, then you have a hidden dependency.
+  - If you cannot reproduce a system /locally/, it becomes a black-box external system.
+  - *Text is local.*
+
+** Emacs \twemoji{two_hearts} Text
+
+- Emacs is a text editor which implements much of its own logic and user interface via text.
+  - This is why we have elisp, a language tightly integrated with text operations from the editor.
+- Because text forms UI, /parsing/ and /text search/ can be employed not just to edit code, but to construct a user interface from text input.
+  - This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.
+- *MORE!!!!*
+  - something about buffers as a low-level data structure
+  - something about text properties!!!
+
+** Who Says Text is Empowering?
+Not everyone thinks text is empowering! Formal theory thinks nobody should be allowed to parse text without their tools! But their tools don't even attempt to solve major concerns:
+
 *** "Don't parse HTML with regex"
-regex + mutable state can achieve arbitrary linguistic complexity very easily
+"Everyone knows" not to parse HTML with regex, because regex aren't sufficiently powerful to parse HTML. But nobody is parsing HTML with a single massive regex! Regex + mutable state can achieve arbitrary linguistic complexity very easily! And regex is much faster than parsing everything up front!
 
 *** C Lexer Hack
-this is basically why bison and friends aren't used for so many production languages!
+If you're trying to parse a programming language, that means you need to use a LALR parser right? But LALR parsers like Bison and friends are unable to represent *ambiguity*, so types and variables cannot be distinguished in the parser alone! This means languages are forced to dampen their own expressivity to use the formal tooling!
+
+** Emacs Says So!
+This isn't remotely a concern for Emacs code, which regularly uses regexps to parse HTML and other programming languages! How?
+
+- text properties
+  - used to write state to the text which is used in conjunction with regex to achieve greater linguistic complexity
+- syntax parsing
+  - regex engine is aware of this
+- jit-lock-mode
+  - use smart heuristics to only reparse what's been modified
 
 ** b
 Emacs is a delightful case study for the capabilities of regular expressions, because Emacs forms user interfaces via text, which retains the expressivity of a GUI with the user-level interactivity of written language. Because we use text for both input and output, regexps in Emacs form part of a user-level grammar for human thought. As a result, Emacs and Emacs users have a rich intuitive grasp of regular expressions, which provides a unique vantage point to consider how they may be improved in general.
