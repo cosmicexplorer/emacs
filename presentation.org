@@ -36,15 +36,13 @@ Danny McClanahan:
 - failed an Independent Study in Compiler Design in undergrad attempting to make a C compiler because (as my prof /specifically/ warned me against) I got stuck on the parser.
 - spent the next several years realizing that was actually what I should have been doing the whole time.
 *** Why are you here?
-Because ~emacs-devel~ has taught me so much and I'm about to bowdlerize it all to you!
+Because I have a lot of /feelings/ about text search and I'm about to make it everyone else's problem!
 
-** ~emacs-devel~
+** I \twemoji{purple_heart} ~emacs-devel~
 - spent a lot of time learning much of this from ~emacs-devel~
   - was super confused about a lot of dynamics
 - thought this would be a matter of just updating the regex engine to use modern techniques
   - turns out the emacs regex engine has features that don't exist in other engines (such as non-contiguous input)
-- then thought caching compilation would be enough
-  - turns out it's hard to cache
 - then i learned about other larger goals for the regex engine which happened to overlap a lot with my own research interests
 
 * What is a regular expression? When and how does implementation match formal theory?
@@ -55,9 +53,8 @@ No one's really sure!
 Formal theory is mostly invoked to post-hoc justify design decisions instead of expanding its expressive power!
 
 ** How did this happen?
-/This is adapted from "The Four Eras of Regex" by Prof. Jamie Jennings at NCSU: https://jamiejennings.com/posts/2021-09-23-dont-look-back-2./
 
-- regex began as an investigation of formal theories of /parsing/ and /formal languages/
+- regex began as an investigation into theories of /formal languages/ and the process of /parsing/
 - many features were added on to implementations to improve the practical user experience
   - while the people adding these features were often academics, they were also much more interested in building practical tools
 - this led to feature development beyond the range of formal theory (awesome!)
@@ -65,13 +62,9 @@ Formal theory is mostly invoked to post-hoc justify design decisions instead of 
   - formal theory couldn't keep up!
 
 ** The 1980s: Moonwalking and Backtracking
-/I love Michael Jackson./
 
-- around the 70s-80s-90s, programming languages are trying to get a handle on this whole "text" business
-  - (in fact, some programming languages like icon or SNOBOL end up being /entirely/ about text matching)
-  - so they began to integrate regex implementations
-    - in particular, they start reimplementing vaguely-similar interfaces with vastly different implementations
-- 1986: backtracking developed to simulate "egrep-style regular expressions"
+- 1983: michael jackson demonstrates the moonwalk in the music video for "billie jean"
+- 1986: backtracking developed to simulate "egrep-style regular expressions"@@latex:\footnote{This is adapted from "The Four Eras of Regex" by Prof. Jamie Jennings at NCSU: \url{https://jamiejennings.com/posts/2021-09-23-dont-look-back-2/}.}@@
   - backtracking ends up being a fantastic way to implement many more features
     - this is really where the break from formal theory begins
   - perl in particular adds a whole host of functionality
@@ -175,14 +168,16 @@ In two ways:
 ** ~regex-emacs~
 - the compiled pattern is stored as an ~re_pattern_buffer~ struct from ~src/regex-emacs.h~
 - matching loop in ~re_match_2_internal()~ in ~src/regex-emacs.c~:
-  - extract current and next char
+  1. extract current and next char
     - perform multibyte varint decoding to iterate bytes
     - translate input characters via the case-folding char-table
-  - read instruction from instruction pointer
-  - big switch statement for the next instruction from the compiled pattern
+  2. read instruction from instruction pointer
+  3. big switch statement for the next instruction from the compiled pattern
     - if instruction uses syntax, read the syntax class for the current character from the current syntax table
-  - increment both pointers as well as the instruction pointer (if instruction was not a jump)
-  - if we've concluded a capture, write the end position to the C-level array ~re_nsub~
+  4. increment both pointers as well as the instruction pointer (if instruction was not a jump)
+  5. if we've concluded a capture, write the end position to the C-level array ~re_nsub~
+
+** Non-Contiguous Matching
 - non-contiguous matching over the two halves of the gap buffer is supported by checking at each point whether we have progressed to the end of the first half, and then switching over to the second half
   - this allows the same code to be used for single-string search, as it simply avoids checking a NULL second pointer and only checks if we've reached the end of the first input
 
@@ -286,10 +281,10 @@ This section will describe several potential paths we might investigate, paraphr
 ** End
 Hoping to work on lots of stuff around these subjects for a doctoral degree!
 
-*** text
+*** text-mode
 - mastodon: [[https://circumstances.run/@hipsterelectron][~@hipsterelectron@circumstances.run~]]
   - /also twitter, bluesky/
 
-*** code
+*** prog-mode
 - codeberg: [[https://codeberg.org/cosmicexplorer][~@cosmicexplorer~]]
   - github: [[https://github.com/cosmicexplorer][~@cosmicexplorer~]]
