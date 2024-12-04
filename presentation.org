@@ -22,26 +22,74 @@
 #+OPTIONS: H:2
 #+COLUMNS: %40ITEM %10BEAMER_env(Env) %9BEAMER_envargs(Env Args) %4BEAMER_col(Col) %10BEAMER_extra(Extra)
 
-#+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Topic}\tableofcontents[currentsection]\end{frame}}
+#+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Question}\tableofcontents[currentsection]\end{frame}}
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
 #+latex_compiler: pdflatex
 
 * What is a regular expression? When and how does implementation match formal theory?
-** regex is often implementation-defined
-the four eras of regex: https://jamiejennings.com/posts/2021-09-23-dont-look-back-2/
+** Answer
+*** What is a regular expression?
+No one's really sure!
+*** When and how does implementation match formal theory?
+Formal theory is mostly invoked to post-hoc justify design decisions instead of expanding its expressive power!
 
-** the theory has become extremely inflexible
-people just don't use formalisms!
+** How did this happen?
+(This is adapted from [[https://jamiejennings.com/posts/2021-09-23-dont-look-back-2/]["The Four Eras of Regex"]] by Prof. Jamie Jennings at NCSU.)
 
+- regex began as an investigation of formal theories of /parsing/ and /formal languages/
+- many features were added on to implementations to improve the practical user experience
+  - while the people adding these features were often academics, they were also much more interested in building practical tools
+- this led to feature development beyond the range of formal theory (awesome!)
+  - however, this also means that functionality becomes *poorly-specified and implementation-defined*
+  - formal theory couldn't keep up!
+
+** The 1980s: Moonwalking and Backtracking
+
+- around the 70s-80s-90s, programming languages are trying to get a handle on this whole "text" business
+  - (in fact, some programming languages like icon or SNOBOL end up being /entirely/ about text matching)
+  - so they began to integrate regex implementations
+    - in particular, they start reimplementing vaguely-similar interfaces with vastly different implementations
+- 1986: backtracking developed to simulate "egrep-style regular expressions"
+  - backtracking ends up being a fantastic way to implement many more features
+    - this is really where the break from formal theory begins
+  - perl in particular adds a whole host of functionality
+    - this locks people into the specifics of perl as a language to perform many text manipulation tasks
+
+** Formal Theory's Response: "You're Holding It Wrong"
+
+- formal theory is (largely still) interested in concrete comparisons of space/runtime
+  - much less so in user empowerment
+- non-backtracking engines are created (re2, hyperscan, rust regex)
+  - these make use of the earlier automaton models with linear runtimes for well-specified search tasks
+  - however, they intentionally do not cover anything beyond regular linguistic complexity
+    - so what happens if you need to do that?
+
+** Parsing Theory has Become Extremely Inflexible
+
+- people just don't use formalisms, because they don't cover their use case!
+  - this is a HUGE problem: the point where the computer interfaces with the outside world is exactly the place where programmers DON'T and CAN'T make use of formal theory!
+- because regex are built-in to the programming language, people use them instead
+  - in addition to being poorly-specified and implementation-defined, they're now also overloaded with text manipulation tasks beyond their capabilities!
+- for specific formal reasons, *regex cannot be composed together* like productions in a CFG
+  - linear automata cannot be started in one place and resumed in another
+    - a regex engine can't run two threads in parallel and "meet in the middle"
+
+* What are regexps used for? How do Emacs users use them?
+** Answer
+*** What are regexps used for?
+All variety of text search and parsing tasks!
+*** How do Emacs users use them?
+As an auxiliary form of logic, to construct the user-level grammar for human thought that Emacs provides: text as input and output.
+
+** a
 *** "Don't parse HTML with regex"
 regex + mutable state can achieve arbitrary linguistic complexity very easily
 
 *** C Lexer Hack
 this is basically why bison and friends aren't used for so many production languages!
 
-* What are regexps used for? How do Emacs users use them?
 ** b
 Emacs is a delightful case study for the capabilities of regular expressions, because Emacs forms user interfaces via text, which retains the expressivity of a GUI with the user-level interactivity of written language. Because we use text for both input and output, regexps in Emacs form part of a user-level grammar for human thought. As a result, Emacs and Emacs users have a rich intuitive grasp of regular expressions, which provides a unique vantage point to consider how they may be improved in general.
 ** d
