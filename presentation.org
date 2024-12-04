@@ -126,8 +126,7 @@ This isn't remotely a concern for Emacs code, which regularly uses regexps to pa
 There /are/ actually reasons to avoid this!
 
 - Regexps may have extremely non-obvious dependencies on parse context.
-  - A non-greedy match may be correct when invoked in a restricted context, but may become subtly incorrect when used more generally.
-  - For example, ~(\_<.*?):~ could match a symbol before a ~:~ (like ~a:~ in JavaScript), but could unintentionally match string properties like ~"a:b":~ as ~a:~ too!
+  - A non-greedy match may be correct when invoked in a restricted context, but may become subtly incorrect when used more generally.@@latex:\footnote{For example, \underline{\texttt{(\_<.*?):}} could match a symbol before a \underline{\texttt{:}} (like \underline{\texttt{a:}} in JavaScript), but could unintentionally match string properties like \underline{\texttt{"a:b":}} as \underline{\texttt{a:}} too!}@@
 - While text properties and buffer-local variables can retain the state necessary to parse non-regular languages, coordinating that state can be error-prone.
   - Since *there are no existing formalisms to link regex with external state*, it can become extremely difficult to reproduce the precise internal state which generates a logic bug in an elisp mode.
 
