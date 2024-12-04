@@ -27,18 +27,20 @@
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
-#+latex_compiler: lualatex
+#+latex_compiler: pdflatex
 
 * Who are you? Why are you here?
 ** Answer
 *** Who are you?
-Danny McClanahan. *TODO: MORE???*
+Danny McClanahan:
+- I failed an Independent Study in Compiler Design in undergrad to make a C compiler because (as my prof /specifically/ warned me against) I got stuck on the parser.
+- I then spent the next several years realizing that was actually what I should have been doing the whole time.
 *** Why are you here?
-Because ~emacs-devel~ has taught me so much and I'm about to bowdlerize it to you.
+Because ~emacs-devel~ has taught me so much and I'm about to bowdlerize it all to you.
 
 ** ~emacs-devel~
 - spent a lot of time learning much of this from ~emacs-devel~
-- was super confused about a lot of dynamics
+  - was super confused about a lot of dynamics
 - thought this would be a matter of just updating the regex engine to use modern techniques
   - turns out the emacs regex engine has features that don't exist in other engines (especially non-contiguous input)
 - then thought caching compilation would be enough
