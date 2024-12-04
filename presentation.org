@@ -119,9 +119,6 @@ As an auxiliary form of logic, to construct the user-level grammar for human tho
   - This is why we have elisp, a language tightly integrated with text operations from the editor.
 - Because text forms UI, /parsing/ and /text search/ can be employed not just to edit code, but to construct a user interface from text input.
   - This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.
-- *MORE!!!!*
-  - something about buffers as a low-level data structure
-  - something about text properties!!!
 
 ** Who Says Text is Empowering?
 Not everyone thinks text is empowering! Formal theory thinks nobody should be allowed to parse text without their tools! But their tools don't even attempt to solve major concerns:
@@ -197,7 +194,11 @@ In two ways:
 
 ** ~regex-emacs.c~
 - describe ~re_pattern_buffer~
-- vaguely describe the matching logic
+- /vaguely describe the matching logic:/
+  - sets the pointer to current and next char
+  - read instruction from instruction pointer
+  - big switch statement for the next instruction from the compiled pattern
+  - increment both pointers as well as the instruction pointer (if instruction was not a jump)
 
 ** Multibyte
 - It turns out this actually isn't terribly relevant to the regex engine!
