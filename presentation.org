@@ -123,14 +123,46 @@ This isn't remotely a concern for Emacs code, which regularly uses regexps to pa
 - jit-lock-mode
   - use smart heuristics to only reparse what's been modified
 
-** b
-Emacs is a delightful case study for the capabilities of regular expressions, because Emacs forms user interfaces via text, which retains the expressivity of a GUI with the user-level interactivity of written language. Because we use text for both input and output, regexps in Emacs form part of a user-level grammar for human thought. As a result, Emacs and Emacs users have a rich intuitive grasp of regular expressions, which provides a unique vantage point to consider how they may be improved in general.
-** d
-text properties, syntax parsing, buffer-local variables, jit-lock-mode
-*** huh
-emacs text properties and buffer-local variables provide mutable state for regex search to interact with
-*** ah
-this can become very difficult to reproduce the precise internal state which leads to e.g. a logic bug in elisp code
+** But....
+There /are/ actually reasons to avoid this!
+
+- Regexps may have extremely non-obvious interactions with each other:
+  - A non-greedy match may be correct when invoked in a restricted context, but may become subtly incorrect when used more generally.
+  - For example, ~(\<.*?):~ could match a symbol before a ~:~ (like ~a:~ in JavaScript), but could unintentionally match string properties like ~"a":~ without the leading ~"~.
+- While text properties and buffer-local variables can retain the state necessary to parse non-regular languages, coordinating that state can be error-prone.
+  - Especially since *there are no existing formalisms to link regex with external state*, it can become extremely difficult to reproduce the precise internal state which generates a logic bug in an elisp mode.
+- In general, you have to do all of the work yourself to create a parser from scratch, and this is immensely frustrating and difficult.
+
+** ~tree-sitter~
+
+In fact, ~tree-sitter~ (since Emacs 29) was created to solve this problem /for well-specified language definitions/.
+
+- It is a highly constraining formal tool!
+- And it means you now depend on:
+  - The tree-sitter grammar for your language (which is obnoxious to read and write).
+  - The ~tree-sitter~ library (which does not have universal uptake within distros).
+
+So I don't like it! But for the specific task of parsing a programming language, it happens to solve a lot of other problems at once.
+
+** So Why Use Regex?
+So why are we talking about regex here? Mainly:
+- parsing programming languages is a very small subset of all text search/matching tasks!
+- regex can be directly manipulated by the user!
+
+For the interactive experiences that Emacs excels at, regex provides a powerful language /for both input and output/:
+- it can be synthesized hygienically from elisp code via ~rx~, either statically at load time or dynamically at run time!
+- it can be received or transformed from user input to specify powerful queries over complex data!
+
+...but this might require going beyond "regex" alone!
+
+# ** b
+# Emacs is a delightful case study for the capabilities of regular expressions, because Emacs forms user interfaces via text, which retains the expressivity of a GUI with the user-level interactivity of written language. Because we use text for both input and output, regexps in Emacs form part of a user-level grammar for human thought. As a result, Emacs and Emacs users have a rich intuitive grasp of regular expressions, which provides a unique vantage point to consider how they may be improved in general.
+# ** d
+# text properties, syntax parsing, buffer-local variables, jit-lock-mode
+# *** huh
+# emacs text properties and buffer-local variables provide mutable state for regex search to interact with
+# *** ah
+# this can become very difficult to reproduce the precise internal state which leads to e.g. a logic bug in elisp code
 
 * What does Emacs require from a regex engine? How does that differ from other engines?
 When I began my investigation, I assumed that Emacs would be able to use an existing off-the-shelf regex engine, that this would be more performant than regex-emacs.c, and that the greatest challenge would be providing a sufficiently robust build process (see emacs-devel: https://lists.gnu.org/archive/html/emacs-devel/2024-04/msg00142.html). However, I quickly found that Emacs (as usual) is far more configurable than alternatives (see rust regex discussion: https://github.com/rust-lang/regex/discussions/1167#discussioncomment-8585027). Now don't get this twisted: emacs-devel was open to deprecating functionality that hampered optimization! But the biggest challenge by far is that regex-emacs.c is categorically more powerful than alternatives: it can match against non-contiguous input (across both halves of the gap buffer), as well as non-UTF8 text with its fantastic multibyte encoding (see https://www.gnu.org/software/emacs/manual/html_node/elisp/Text-Representations.html).
