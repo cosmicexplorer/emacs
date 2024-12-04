@@ -192,13 +192,15 @@ In two ways:
 - over a single contiguous string input,
 - over the two halves of the gap buffer.
 
-** ~regex-emacs.c~
+** ~regex-emacs~
 - describe ~re_pattern_buffer~
 - /vaguely describe the matching logic:/
   - sets the pointer to current and next char
   - read instruction from instruction pointer
   - big switch statement for the next instruction from the compiled pattern
   - increment both pointers as well as the instruction pointer (if instruction was not a jump)
+- non-contiguous matching over the two halves of the gap buffer is supported by checking at each point whether we have progressed to the end of the first half, and then switching over to the second half
+  - this allows the same code to be used for single-string search, as it simply avoids checking a NULL second pointer and only checks if we've reached the end of the first input
 
 ** Multibyte
 - It turns out this actually isn't terribly relevant to the regex engine!
@@ -209,27 +211,17 @@ In two ways:
 
 ** Case-folding
 - If ~case-fold-search~ is non-nil, look up the C-level buffer-local ~case_canon_table~.
+  - Look up and translate each input character through this char-table.
 
 ** Char-folding
-a
+- Not done in the regex engine itself!
+- ~char-fold.el~ instead /generates/ a regex pattern string.
 
 ** Mode-specific Syntax
 - ~\w~ / ~\W~, ~\s<code>~ / ~\S<code>~, ~\b~ / ~\B~, ~\<~ / ~\>~, ~\_<~ / ~\_>~
   - https://www.gnu.org/software/emacs/manual/html_node/elisp/Regexp-Backslash.html
   - https://www.gnu.org/software/emacs/manual/html_node/elisp/Syntax-Class-Table.html
 - ~used_syntax~ in ~re_pattern_buffer~
-
-** Non-Contiguous Matching (Gap Buffer)
-c
-
-** Transparent Compilation Cache
-d
-
-** ~match-data~ List
-e
-
-** ~search.c~ Dispatches to ~regex-emacs.c~
-- checks if the regex string is a pure literal, then dispatches to a literal search engine with an entirely separate code path
 
 * How could we do regex better in Emacs? How could Emacs do regex better than anywhere else?
 ** Answer
@@ -259,14 +251,18 @@ e
   - char-by-char varint decoding of multibyte/utf8 is comparatively slow
     - this is the reason go's "re2" is much much slower than the c++ re2 library
   - we can do this work at compile time instead, generating a larger automaton in order to be able to think in terms of byte ranges instead
+    - this is already what we do for e.g. char-folding
     - this is a necessary prerequisite for SIMD instructions
 
 - SIMD literal search is used as a "prefilter" optimization in high-performance regex engines
   - https://github.com/BurntSushi/rebar
   - this is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton
+
 - more generally, expose APIs that enforce a strict degree of linguistic complexity
   - searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid
     - searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA
+    - we already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer, but this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics
+      - this also involves an entirely separate code path
   - backrefs are a special case on the other end of complexity
     - recently formalized: https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/
 
