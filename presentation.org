@@ -249,6 +249,11 @@ e
 - this feeds into the "libraries of composeable patterns" discussion for the future
 
 ** In Emacs: Optimization
+- precompile regexps to enable more powerful compilation techniques
+  - have demonstrated this in a test branch: https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex
+  - artificial benchmarks show an improvement, but haven't been able to produce apples-to-apples comparison yet
+  - syntax highlighting would be the most appropriate, but caching these compiles currently makes syntax parsing fail
+
 - match over bytes, not chars
   - char-by-char varint decoding of multibyte/utf8 is comparatively slow
     - this is the reason go's "re2" is much much slower than the c++ re2 library
