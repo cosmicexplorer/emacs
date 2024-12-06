@@ -88,7 +88,7 @@ Regex began as an investigation into theories of /formal languages/. @@latex:\vs
 \fontsize{18pt}{18pt}
 \selectfont
 
-Formal theory remains largely concerned with \uline{incremental improvements} to \uline{artificial benchmarks}, and much less with \textit{expanding} models to cover \uline{actual user needs}.\footnote[frame]{This means they're also much slower than they could be if they \textit{listen}.}
+Formal theory remains largely concerned with \uline{incremental improvements} to \uline{artificial benchmarks}, and much less with \textit{expanding} models to cover \uline{actual user needs}.\footnote[frame]{This means they're also much slower than they could be if they \textit{listen closely}.}
 
 \end{columns}
 #+END_EXPORT
@@ -144,15 +144,22 @@ As an auxiliary form of logic, to construct the *user-level grammar for human th
   - *This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.*
 
 ** Who Says Text is Empowering?
-Not everyone thinks text is empowering! Formal theory thinks nobody should be allowed to parse text without their tools!
+@@latex:\framesubtitle{[1: \uline{You're Not Smart Enough}]}@@
 
-*** "Don't parse HTML with regex"
+Not everyone thinks text is empowering!
+- Formal theory thinks nobody should be allowed to parse text without their tools!
+
+** Who Says Text is Empowering?
+@@latex:\framesubtitle{[2: \uline{Don't Parse HTML with Regex}]}@@
+
 "Everyone knows" not to parse HTML with regex, because regex (alone!) isn't sufficiently powerful to parse HTML. But:
-- Nobody is parsing HTML with a single massive regex!
-- Regex + mutable state can achieve arbitrary linguistic complexity!
-- Regex search for a specific substring is much faster than parsing everything up front!
+1. Nobody is parsing HTML with a single massive regex!
+2. Regex + mutable state can achieve arbitrary linguistic complexity!
+3. Regex search for a specific substring is much faster than parsing everything up front!
 
-*** C Lexer Hack
+** Who Says Text is Empowering?
+@@latex:\framesubtitle{[3: \uline{C Lexer Hack}]}@@
+
 Turns out those tools aren't /too/ powerful, they're actually not powerful /enough/ for practical inputs!
 - This is why I got stuck on the parser in that independent study course!
 
