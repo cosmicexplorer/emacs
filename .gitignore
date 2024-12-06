@@ -388,4 +388,5 @@ exec/config-mips.m4
 exec/configure
 exec/*.s.s
 
-/presentation.tex
+/*.tex
+/*.pdf
