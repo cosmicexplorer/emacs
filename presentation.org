@@ -24,6 +24,7 @@
 
 #+latex_header: \usepackage{twemojis}
 #+latex_header: \AtBeginSection[]{\begin{frame}<beamer>\frametitle{Question}\tableofcontents[currentsection]\end{frame}}
+#+latex_header: \setbeamertemplate{navigation symbols}{}
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
@@ -36,14 +37,15 @@ Danny McClanahan:
 - failed an Independent Study in Compiler Design in undergrad attempting to make a C compiler because (as my prof /specifically/ warned me against) I got stuck on the parser.
 - spent the next several years realizing that was actually what I should have been doing the whole time.
 *** Why are you here?
-Because I have a lot of /feelings/ about text search and I'm about to make it everyone else's problem!
+Because I have a lot of feelings about text and I'm about to make it everyone else's problem!
 
 ** I \twemoji{purple_heart} ~emacs-devel~
-- spent a lot of time learning much of this from ~emacs-devel~
-  - was super confused about a lot of dynamics
-- thought this would be a matter of just updating the regex engine to use modern techniques
-  - turns out the emacs regex engine has features that don't exist in other engines (such as non-contiguous input)
-- then i learned about other larger goals for the regex engine which happened to overlap a lot with my own research interests
+- spent a lot of time learning much of this from ~emacs-devel~ \twemoji{nerd_face}
+  - was super confused about...a lot \twemoji{sweat_smile} @@latex:\vspace{4pt}@@
+- thought this would be a matter of just updating the regex engine to use modern techniques \twemoji{dna} \twemoji{atom symbol} \twemoji{medical symbol}
+  - ...turns out the emacs regex engine has features that don't exist in other engines!!!\footnote{especially non-contiguous input, syntax-aware matching, and multibyte encoding} \twemoji{fire} \twemoji{crystal_ball} @@latex:\vspace{4pt}@@
+- then i learned about other larger goals for the regex engine! \twemoji{jigsaw}
+  - ...which happened to overlap a lot with my own research interests \twemoji{smiling_imp}
 
 * What is a regular expression? When and how does implementation match formal theory?
 ** Answer
@@ -54,16 +56,16 @@ Formal theory is mostly invoked to post-hoc justify design decisions instead of 
 
 ** How did this happen?
 
-- regex began as an investigation into theories of /formal languages/ and the process of /parsing/
+- regex began as an investigation into theories of /formal languages/ and the process of /parsing/ @@latex:\vspace{4pt}@@
 - many features were added on to implementations to improve the practical user experience
-  - while the people adding these features were often academics, they were also much more interested in building practical tools
+  - while the people adding these features were often academics, they were also much more interested in building practical tools @@latex:\vspace{4pt}@@
 - this led to feature development beyond the range of formal theory (awesome!)
   - however, this also means that functionality becomes *poorly-specified and implementation-defined*
   - formal theory couldn't keep up!
 
 ** The 1980s: Moonwalking and Backtracking
 
-- 1983: michael jackson demonstrates the moonwalk in the music video for "billie jean"
+- 1983: michael jackson demonstrates the moonwalk in the music video for "billie jean" @@latex:\vspace{4pt}@@
 - 1986: backtracking developed to simulate "egrep-style regular expressions"@@latex:\footnote{This is adapted from "The Four Eras of Regex" by Prof. Jamie Jennings at NCSU: \url{https://jamiejennings.com/posts/2021-09-23-dont-look-back-2/}.}@@
   - backtracking ends up being a fantastic way to implement many more features
     - this is really where the break from formal theory begins
@@ -73,25 +75,25 @@ Formal theory is mostly invoked to post-hoc justify design decisions instead of 
 ** Formal Theory's Response: "You're Holding It Wrong"
 
 - formal theory is (largely still) interested in concrete comparisons of space/runtime
-  - much less so in user empowerment
+  - much less so in user empowerment \twemoji{roll_eyes} @@latex:\vspace{4pt}@@
 - non-backtracking engines are created (re2, hyperscan, rust regex)
   - these make use of the earlier automaton models with linear runtimes for well-specified search tasks
   - however, they intentionally do not cover anything beyond regular linguistic complexity
-    - so what happens if you need to do that?
+    - *so what happens if you need to do that?*
 
 * What are regexps used for? How do Emacs users use them?
 ** Answer
 *** What are regexps used for?
 All variety of text search and parsing tasks!
 *** How do Emacs users use them?
-As an auxiliary form of logic, to construct the user-level grammar for human thought that Emacs provides: text as input and output.
+As an auxiliary form of logic, to construct the *user-level grammar for human thought* that Emacs provides: text as input and output.
 
 ** Aside: Why is Text Powerful?
 
 - The reason text programming languages are successful is because text is both input (readable) and output (writable).
-  - This makes text an extremely empowering and accessible framework to navigate and manipulate program code.
+  - This makes text an extremely empowering and accessible framework to navigate and manipulate program code. @@latex:\vspace{4pt}@@
 - If there are elements only accessible via a GUI IDE, the developer of the GUI IDE can then exert arbitrary control over your programming output.
-  - This kind of dependency is also the goal of statistical models used for text generation such as LLMs, as one among many attempts to subjugate local development to cloud services.
+  - This kind of dependency is also the goal of statistical models used for text generation such as LLMs, as one among many attempts to subjugate local development to cloud services. @@latex:\vspace{4pt}@@
 - If you are unable to meaningfully edit parts of the code without interacting with a black-box external system, then you have a hidden dependency.
   - If you cannot reproduce a system /locally/, it becomes a black-box external system.
   - *Text is local.*
@@ -99,9 +101,9 @@ As an auxiliary form of logic, to construct the user-level grammar for human tho
 ** Emacs \twemoji{two_hearts} Text
 
 - Emacs is a text editor which implements much of its own logic and user interface via text.
-  - This is why we have elisp, a language tightly integrated with text operations from the editor.
+  - This is why we have elisp, a language tightly integrated with text operations from the editor. @@latex:\vspace{4pt}@@
 - Because text forms UI, /parsing/ and /text search/ can be employed not just to edit code, but to construct a user interface from text input.
-  - This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.
+  - *This means that language-level mechanisms for text such as the regex engine can be extended into the user interface.*
 
 ** Who Says Text is Empowering?
 Not everyone thinks text is empowering! Formal theory thinks nobody should be allowed to parse text without their tools!
@@ -112,44 +114,47 @@ Not everyone thinks text is empowering! Formal theory thinks nobody should be al
 - Regex + mutable state can achieve arbitrary linguistic complexity very easily!
 - And regex search for a specific substring is much faster than parsing everything up front!
 
+*** C Lexer Hack
+Turns out those tools aren't /too/ powerful, they're actually not powerful /enough/ for practical inputs!
+
 ** Emacs Says So!
-This isn't remotely a concern for Emacs code, which regularly uses regexps to parse HTML and other programming languages! How?
+This isn't remotely a concern for Emacs code, which regularly uses regexps to parse HTML and other programming languages! How? @@latex:\vspace{8pt}@@
 
 - text properties
-  - used to write state to the text which is used in conjunction with regex to achieve greater linguistic complexity
+  - used to write state to the text itself\footnote{not unlike the tape of a turing machine!}
+  - used in conjunction with regex to achieve greater linguistic complexity
 - syntax parsing
-  - regex engine is aware of this via syntax classes
+  - regex engine is aware of this via syntax classes@@latex:\footnote{\texttt{{\textbackslash}b}, \texttt{{\textbackslash}<}, etc (see \url{https://www.gnu.org/software/emacs/manual/html_node/elisp/Regexp-Backslash.html})}@@
 - jit-lock-mode
-  - use smart heuristics to only reparse what's been modified
+  - use smart heuristics to only reparse what's been modified@@latex:\footnote{this might just be fontification, as opposed to the work done in \texttt{syntax-ppss}}@@
 
 ** But....
-There /are/ actually reasons to avoid this!
+There /are/ actually reasons to avoid this! @@latex:\vspace{8pt}@@
 
 - Regexps may have extremely non-obvious dependencies on parse context.
-  - A non-greedy match may be correct when invoked in a restricted context, but may become subtly incorrect when used more generally.@@latex:\footnote{For example, \underline{\texttt{(\_<.*?):}} could match a symbol before a \underline{\texttt{:}} (like \underline{\texttt{a:}} in JavaScript), but could unintentionally match string properties like \underline{\texttt{"a:b":}} as \underline{\texttt{a:}} too!}@@
+  - A non-greedy match may be correct when invoked in a restricted context, but may become subtly incorrect when used more generally.@@latex:\footnote{For example, \underline{\texttt{(\_<.*?):}} could match a symbol before a \underline{\texttt{:}} (like \underline{\texttt{a:}} in JavaScript), but could unintentionally match string properties like \underline{\texttt{"a:b":}} as \underline{\texttt{a:}} too!}@@ @@latex:\vspace{4pt}@@
 - While text properties and buffer-local variables can retain the state necessary to parse non-regular languages, coordinating that state can be error-prone.
-  - Since *there are no existing formalisms to link regex with external state*, it can become extremely difficult to reproduce the precise internal state which generates a logic bug in an elisp mode.
+  - Since *there are no existing formalisms to link regex with external state*\footnote{Composing automata with other parse state is one of the subjects of my research.}, it can become extremely difficult to reproduce the precise internal state which generates a logic bug in an elisp mode.
 
 ** ~tree-sitter~
 
-In fact, ~tree-sitter~ (since Emacs 29) was created to solve this problem /for well-specified language definitions/.
+In fact, ~tree-sitter~ (since Emacs 29) was created to solve this problem /for well-specified language definitions/. @@latex:\vspace{8pt}@@
 
-- It is a highly constraining formal tool!
+- It is a highly constraining formal tool! @@latex:\vspace{4pt}@@
 - And it means you now depend on:
   - The tree-sitter grammar for your language (which is obnoxious to read and write).
-  - The ~tree-sitter~ library (which does not have universal uptake within distros).
+  - The ~tree-sitter~ library (which does not have universal uptake within distros). @@latex:\vspace{8pt}@@
 
 So I don't like it! But for the specific task of parsing a programming language, it happens to solve a lot of other problems at once.
 
 ** So Why Use Regex?
 So why are we talking about regex here? Mainly:
 - parsing programming languages is a very small subset of all text search/matching tasks!
-- regex can be directly manipulated by the user!
+- regex can be directly manipulated by the user! @@latex:\vspace{8pt}@@
 
 For the interactive experiences that Emacs excels at, regex provides a powerful language /for both input and output/:
 - it can be synthesized hygienically from elisp code via ~rx~, either statically at load time or dynamically at run time!
-- it can be received or transformed from user input to specify powerful queries over complex data!
-  - *see ~helm-rg~, ~telepathygrams~ at end*
+- it can be received or transformed from user input to specify powerful queries over complex data! @@latex:\footnote{See \texttt{helm-rg} and \texttt{telepathygrams} at end.}@@ @@latex:\vspace{8pt}@@
 
 ...but this might require going beyond "regex" alone!
 
@@ -164,27 +169,26 @@ In two ways:
 - over the two halves of the gap buffer.
 
 ** ~regex-emacs~
-- the compiled pattern is stored as an ~re_pattern_buffer~ struct from ~src/regex-emacs.h~
-- matching loop in ~re_match_2_internal()~ in ~src/regex-emacs.c~:
+- The compiled pattern is stored as an ~re_pattern_buffer~ struct from ~src/regex-emacs.h~.
+  - In particular, ~unsigned char *buffer~ holds the instructions!
+- The matching loop in ~re_match_2_internal()~ in ~src/regex-emacs.c~ goes vaguely as follows:
   1. extract current and next char
-    - perform multibyte varint decoding to iterate bytes
-    - translate input characters via the case-folding char-table
+     - perform multibyte varint decoding to iterate bytes
+     - translate input characters via the case-folding char-table
   2. read instruction from instruction pointer
-  3. big switch statement for the next instruction from the compiled pattern
-    - if instruction uses syntax, read the syntax class for the current character from the current syntax table
+  3. big switch statement for the next instruction
+     - if instruction uses syntax, read the syntax class for the current character from the current syntax table
   4. increment both pointers as well as the instruction pointer (if instruction was not a jump)
   5. if we've concluded a capture, write the end position to the C-level array ~re_nsub~
 
 ** Non-Contiguous Matching
-- non-contiguous matching over the two halves of the gap buffer is supported by checking at each point whether we have progressed to the end of the first half, and then switching over to the second half
-  - this allows the same code to be used for single-string search, as it simply avoids checking a NULL second pointer and only checks if we've reached the end of the first input
+- Non-contiguous matching over the two halves of the gap buffer is supported by checking at each point whether we have progressed to the end of the first half, and then switching over to the second half.
+- This allows the same code to be used for single-string search, as it simply avoids checking a NULL second pointer and only checks if we've reached the end of the first input.
 
 ** Multibyte
 - It turns out this actually isn't terribly relevant to the regex engine!
-  - Or at least, it doesn't really differ from "standard" Unicode regex matching.
-  - /There is no standard: https://jamiejennings.com/posts/2021-09-07-dont-look-back-1./
-- Emacs reads in data from whatever encoding into multibyte, and the regex engine only acts upon this normalized encoding.
-  - https://www.gnu.org/software/emacs/manual/html_node/elisp/Text-Representations.html
+  - Or at least, it doesn't really differ from "standard"@@latex:\footnote{There is no standard (yet): \url{https://jamiejennings.com/posts/2021-09-07-dont-look-back-1/}.}@@ Unicode regex matching.
+- Emacs reads in data from whatever encoding into multibyte,@@latex:\footnote{See \url{https://www.gnu.org/software/emacs/manual/html_node/elisp/Text-Representations.html}.}@@ and the regex engine only acts upon this normalized encoding.
 
 * How could we do regex better in Emacs? How could Emacs do regex better than anywhere else?
 ** Answer
@@ -199,9 +203,11 @@ This section will describe several potential paths we might investigate, paraphr
 ** Separately-Compiled Regexps
 *Precompile regexps to enable more powerful compilation techniques.*
 
-- have demonstrated this in a test branch: https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex
-- artificial benchmarks show an improvement, but haven't been able to produce apples-to-apples comparison yet
-- syntax highlighting would be the most appropriate, but caching these compiles currently makes syntax parsing fail
+- have demonstrated this in a test branch@@latex:\footnote{\url{https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex}}@@
+  - adds native elisp regexp and match data objects
+  - use ~(make-regexp "...")~ and pass that instead of a bare string
+- artificial benchmarks@@latex:\footnote{using \texttt{test/manual/perf.el}}@@ show an improvement, but haven't been able to produce apples-to-apples comparison yet\footnote{native match data object produces no significant performance improvement}
+  - syntax highlighting would be the most appropriate, but caching these compiles currently makes syntax parsing fail
 
 ** Match Over Bytes, not Chars
 *Compile patterns to byte-level automata, then iterate over bytes.*
@@ -215,30 +221,26 @@ This section will describe several potential paths we might investigate, paraphr
 ** Expose SIMD literal search
 *Expose a SIMD literal search method for specific search tasks.*
 
-- this is used as a "prefilter" optimization in high-performance regex engines
-  - https://github.com/BurntSushi/rebar
-- this is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton
+- This is used as a "prefilter" optimization in high-performance regex engines.@@latex:\footnote{see \url{https://github.com/BurntSushi/rebar} for a fantastic discussion of techniques for regex performance}@@
+- This is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton.
 
 ** Explicit Control over Linguistic Complexity
 *Expose APIs which enforce a strict degree of linguistic complexity for deterministic runtime.*
 
-- searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid
-  - searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA
-- we already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer, but this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics
-  - this also involves an entirely separate code path
-- backrefs are a special case on the other end of complexity
-  - recently formalized: https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/
+- Searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid.\footnote{Searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA.}
+- We already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer, but this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics.\footnote{This also involves an entirely separate code path which would be nice to unify.}
+- Backrefs are a special case on the other end of complexity.@@latex:\footnote{These have recently been formalized: \url{https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/}.}@@
 
 ** Lisp Regexp Library for Introspection
-*Expose a Lisp-level library for regexp matching.*
+*Expose a lisp-level library for regexp matching.*
 
-- the compiled form of the regexp in ~re_pattern_buffer~ can be /executed/, but not really /introspected/
-  - no form of "IR": this also contributes to the difficulty of composing patterns together
-  - this is largely because it's implemented in C
-- we have libgccjit now: why not implement the regex engine itself in lisp???
-  - proposal from Pip Cet (CHECK!) on ~emacs-devel~
-- Integration into ~pcase~ could achieve a form of type safety along with interleaving lisp-level matching logic.
-- biggest issue for optimization: lisp code (or native modules) can't access or operate on the separate halves of the gap buffer
+- The compiled form of the regexp in ~re_pattern_buffer~ can be /executed/, but not really /introspected/
+  - No form of "IR": this also contributes to the difficulty of composing patterns together
+  - This is largely because it's implemented in C.
+- We have libgccjit now: *why not implement the regex engine itself in lisp?* @@latex:\footnote{This was a proposal from Pip Cet on \texttt{emacs-devel}.}@@
+  - Alternatively, translate the regexp itself into lisp which we can JIT.
+  - Integration into ~pcase~ could achieve a form of type safety along with interleaving lisp-level matching logic.
+- Biggest issue for optimization: lisp code (or native modules) can't access or operate on the separate halves of the gap buffer.
 
 * Current and Future Work
 ** ~helm-rg~
