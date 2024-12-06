@@ -282,14 +282,37 @@ This section will describe several potential paths we might investigate:
 
 * Current and Future Work
 ** ~helm-rg~
-a
+- https://github.com/cosmicexplorer/helm-rg
+- show screenshot
+- mention how ~"a b"~ generates ~"a.*b|b.*a"~
 
-** ~f3~
-b
+** Libraries of Composeable Patterns
+*Define a "bidirectional" semantics for parse/search control flow across subgrammars:*
+- *so patterns can be tested and reused.*
+- *so parsing and searching can be performed in parallel, or distributed across time and space.*
 
-** ~telepathygrams~
+I am hoping to investigate this for my doctoral thesis.
+
+** Barriers to Composition
+~rx~ is a really fantastic precedent for hygienically composing regexps alone!
+- But (I claim that) parsers for regular languages cannot be used as a "black box" component of a more complex parsing operation.
+- More seriously, executing a regex currently requires always reading the entire input from left to right.
+  - For example, you can't match a regex on the left side and then one on the right, and then merge their results into a single parse state.
+- This is /also/ true for parsers of more-complex languages!
+
+*This means that every single parsing task always has a strict data dependency on the next byte of input,* which /drastically/ limits the ability to optimize!
+- Instead of matching against numeric offsets, we end up matching against contextual pointers!
+- The parse state needs to be more /formalized/ so that it may be /virtualized/ and thereby /optimized/.
+
+** Virtualizing Parse State
+
+- https://github.com/cosmicexplorer/telepathygrams
 - i'm working on a code search tool that precompiles a database to execute NFAs against
   - basically etags but an n-gram index instead of a symbol index
+  - this is because I want to "beat ripgrep by cheating" with a precompiled index
+- n-gram indices have been done (e.g. Kythe), but I don't want to just find where to start my search--I want to execute the entire search against the index!
+  - This requires virtualizing the state of an NFA so that it may be executed against a multi-level index, in parallel, across machines.
+- This may fail, but it will be fun!
 
 # this needs to be about:
 # (1) what i *thought* needed to be changed
