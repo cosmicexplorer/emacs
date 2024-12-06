@@ -246,16 +246,15 @@ Non-contiguous matching over the two halves of the gap buffer is supported by ch
 ** Match Over Bytes, not Chars
 \framesubtitle{Compile patterns to byte-level automata, then iterate over bytes.}
 
-- char-by-char varint decoding of multibyte/utf8 is comparatively slow
-  - this is the reason go's "re2" is much much slower than the c++ re2 library
-- we can do this work at compile time instead, generating a larger automaton in order to be able to think in terms of byte ranges instead
-  - this is already what we do for e.g. char-folding
-  - this is a necessary prerequisite for SIMD instructions
+Char-by-char varint decoding of multibyte\footnote{No worse than UTF-8 in general, but we may be able to pipeline decoding somehow.} is comparatively slow. @@latex:\vspace{4pt}@@
+- This is the reason go's "RE2" is much much slower than the C++ ~RE2~ library.\footnote{Source: a very dear friend.}
+- We can do this work at compile time instead!\footnote{This is already what we do for e.g. char-folding.}
+  - Generates a larger automaton in order to be able to think in terms of byte ranges.\footnote{This is a necessary prerequisite for SIMD instructions.}
 
 ** SIMD Literal Search
 \framesubtitle{Expose a SIMD literal search method for specific search tasks.}
 
-- This is used as a "prefilter" optimization in high-performance regex engines.@@latex:\footnote{see \url{https://github.com/BurntSushi/rebar} for a fantastic discussion of techniques for regex performance}@@
+This is used as a "prefilter" optimization in high-performance regex engines.@@latex:\footnote{See \url{https://github.com/BurntSushi/rebar} for a fantastic discussion of techniques for regex performance.} \vspace{4pt}@@
 - This is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton.
 
 ** Explicit Control over Linguistic Complexity
@@ -300,12 +299,16 @@ Non-contiguous matching over the two halves of the gap buffer is supported by ch
 ** @@latex:\texttt{telepathygrams}\footnote{\url{https://github.com/cosmicexplorer/telepathygrams}}@@
 \framesubtitle{A (WIP) code search tool that precompiles a database to execute NFAs against.}
 
-I want to "beat ripgrep by cheating" with a precompiled index.@@latex:\footnote{Basically \texttt{etags}, but an n-gram (+ 1-gram) index vs a symbol index.} \vspace{4pt}@@
+I want to beat ~ripgrep~ by "cheating"\footnote{There are other ways to cheat here too, like precompiling known queries.} with a precompiled index.@@latex:\footnote{Inspired by \texttt{etags}, but with a more complex index for more general queries.} \vspace{4pt}@@
 - n-gram indices have been done,@@latex:\footnote{e.g. Kythe: \url{https://kythe.io/docs/kythe-overview.html}}@@ but I don't want to just find where to /start/--I want to execute the /entire search/ against the index!
 - This requires virtualizing NFA state so that it may be distributed:
   - across time :: in parallel / across machines,
   - & space :: in terms of /offsets/ vs directly against the input data.
 - This may fail, but it will be fun!
+
+** RIP @@latex:\texttt{@junyer}\footnote{\url{https://github.com/google/re2/issues/502}}@@
+@@latex:\centering@@
+*Paul Wankadia taught me everything.*
 
 ** ~(point-max)~
 @@latex:\framesubtitle{\twemoji{microphone} call me beep me if you wanna reach me}@@
