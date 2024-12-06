@@ -236,12 +236,12 @@ Non-contiguous matching over the two halves of the gap buffer is supported by ch
 ** Separately-Compiled Regexps
 \framesubtitle{Precompile regexps to enable more powerful compilation techniques.}
 
-- I have demonstrated this in a test branch:@@latex:\footnote{\url{https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex}}@@
-  - Adds native elisp objects for _regexp_ and _match data_.
+I have demonstrated this in a test branch.@@latex:\footnote{\url{https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex}} \vspace{4pt}@@
+- Adds native elisp objects for _regexp_ and _match data_.
   - Use ~(make-regexp "...")~ to explicitly compile a pattern string.
-  - All supported\footnote{literal search methods do not use the regex engine} methods in ~search.c~ can accept either a compiled regexp or bare string. @@latex:\vspace{4pt}@@
-- Artificial benchmarks@@latex:\footnote{using \texttt{test/manual/perf.el}}@@ show an improvement,\footnote{native match data object produces no improvement over consing a list} but I haven't been able to produce an apples-to-apples comparison yet.
-  - Syntax highlighting would be the most appropriate, but caching these compiles currently breaks syntax parsing.\footnote{probably because of buffer-local state not available at compilation time}
+  - All supported\footnote{Literal search methods do not use the regex engine.} methods in ~search.c~ can accept either a compiled regexp or bare string.
+- Artificial benchmarks@@latex:\footnote{Using \texttt{test/manual/perf.el}.}@@ show an improvement,\footnote{Using the native match data object produces no improvement over consing a list.} but I haven't been able to produce an apples-to-apples comparison yet.
+  - Syntax highlighting would be the most appropriate, but caching these compiles currently breaks fontification.\footnote{Current guess is that it relies on buffer-local state not available when precompiled.}
 
 ** Match Over Bytes, not Chars
 \framesubtitle{Compile patterns to byte-level automata, then iterate over bytes.}
@@ -260,8 +260,10 @@ This is used as a "prefilter" optimization in high-performance regex engines.@@l
 ** Explicit Control over Linguistic Complexity
 \framesubtitle{Expose APIs which enforce a strict degree of linguistic complexity for deterministic runtime.}
 
-- Searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid.\footnote{Searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA.}
-- We already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer, but this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics.\footnote{This also involves an entirely separate code path which would be nice to unify.}
+Searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid.\footnote{Searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA.} @@latex:\vspace{4pt}@@
+- We already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer.
+  - But this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics.
+  - This also involves an entirely separate code path which would be nice to unify.
 - Backrefs are a special case on the other end of complexity.@@latex:\footnote{These have recently been formalized: \url{https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/}.}@@
 
 ** Lisp Regexp Library
