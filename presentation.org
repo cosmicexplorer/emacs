@@ -2,7 +2,7 @@
 #+SUBTITLE:	future directions for expressive pattern matching
 #+AUTHOR:	Danny McClanahan
 #+EMAIL:	dmc2@hypnicjerk.ai
-#+DATE:		\today
+#+DATE:		EmacsConf 2024
 
 #+DESCRIPTION:
 #+KEYWORDS:
@@ -27,8 +27,8 @@
 #+latex_header: \setbeamertemplate{navigation symbols}{}
 
 #+latex_header: \usepackage{ulem}[normalem]
-#+latex_header: \renewcommand{\ULthickness}{1pt}
-#+latex_header: \setlength{\ULdepth}{3pt}
+#+latex_header: \renewcommand{\ULthickness}{0.5pt}
+#+latex_header: \setlength{\ULdepth}{1.3pt}
 
 #+latex_footnote_command: \footnote{%s%s}
 #+latex_engraved_theme:
@@ -56,13 +56,13 @@ I have a lot of feelings about text and I'm making it everyone else's problem!
 *** What is a regular expression?
 No one's really sure!
 *** When and how does implementation match formal theory?
-Formal theory is mostly invoked to post-hoc justify design decisions instead of expanding its expressive power!
+Formal theory is mostly invoked to post-hoc justify design decisions instead of expanding expressive power!
 
 ** How did this happen?
 
-- Regex began as an investigation into theories of /formal languages/. @@latex:\vspace{4pt}@@
+Regex began as an investigation into theories of /formal languages/. @@latex:\vspace{4pt}@@
 - Many features were added on to implementations to improve the practical user experience.
-  - While the people adding these features were often academics, they were still very interested in building practical tools! @@latex:\vspace{4pt}@@
+  - While the people adding these features were often academics, they were still very interested in building practical tools!
 - This led to feature development beyond the range of formal theory (awesome!).
   - However, this also means that functionality becomes _poorly-specified_ and _implementation-defined_.
   - *Formal theory couldn't keep up!*
@@ -88,7 +88,7 @@ Formal theory is mostly invoked to post-hoc justify design decisions instead of 
 \fontsize{18pt}{18pt}
 \selectfont
 
-Formal theory remains largely concerned with \uline{incremental improvements} to \uline{artificial benchmarks}, and much less with \textit{expanding} models to cover \uline{actual user needs}.
+Formal theory remains largely concerned with \uline{incremental improvements} to \uline{artificial benchmarks}, and much less with \textit{expanding} models to cover \uline{actual user needs}.\footnote[frame]{This means they're also much slower than they could be if they \textit{listen}.}
 
 \end{columns}
 #+END_EXPORT
@@ -96,7 +96,7 @@ Formal theory remains largely concerned with \uline{incremental improvements} to
 ** Backtracking Away from Backtracking
 
 By the 1990s, non-backtracking engines are created.@@latex:\vspace{8pt}@@
-- Current ones include ~RE2~, ~hyperscan~, and rust ~regex~.\footnote{All of which are fantastic projects I have used and built upon.}@@latex:\vspace{4pt}@@
+- Extant ones include @@latex:\texttt{RE2}\footnote{See \url{https://docs.rs/re2} for the only rust wrapper that will ever be blessed by its maintainer.}@@, @@latex:\texttt{hyperscan}\footnote{See \url{https://docs.rs/vectorscan-async} for the only rust wrapper that builds it for you.}@@, and rust @@latex:\texttt{regex}\footnote{Of which more will be said later.}. \vspace{4pt}@@
 - These make use of the earlier automaton models with linear runtimes for well-specified search tasks.
   - However, they intentionally do not cover anything beyond regular linguistic complexity.
 
@@ -111,23 +111,28 @@ All variety of text search and parsing tasks!
 *** How do Emacs users use them?
 As an auxiliary form of logic, to construct the *user-level grammar for human thought* that Emacs provides: text as input and output.
 
-** Why is Text Powerful? [1: @@latex:\uline{Text as I/O}@@]
+** Why is Text Powerful?
+@@latex:\framesubtitle{[1: \uline{Text as I/O}]}@@
 
 *The reason text programming languages are successful is because text is both input (readable) and output (writable).* @@latex:\vspace{4pt}@@
 
 - This makes text an extremely empowering and accessible framework to /navigate/ and /manipulate/ program code.
 
-** Why is Text Powerful? [2: @@latex:\uline{Hidden Dependencies}@@]
+** Why is Text Powerful?
+@@latex:\framesubtitle{[2: \uline{Hidden Dependencies}]}@@
 
 *If you are unable to modify or deploy your code without employing an opaque external system, then you have a _hidden dependency_.* @@latex:\vspace{4pt}@@
 - This opaque external system can then exert arbitrary control over your programming output.
 
-** Why is Text Powerful? [3: @@latex:\uline{Locality}@@]
+** Why is Text Powerful?
+@@latex:\framesubtitle{[3: \uline{Locality}]}@@
+
 *If you cannot reproduce a system /locally/, it becomes an opaque external system.* @@latex:\vspace{4pt}@@
 - e.g. GUI IDEs, cloud services, Large Language Models\footnote{all Microsoft products}
 
-** Why is Text Powerful? [4: @@latex:\uline{What is Text?}@@]
-# ** What is Text?
+** Why is Text Powerful?
+@@latex:\framesubtitle{[4: \uline{What is Text?}]}@@
+
 @@latex:\centering@@
 *Text is local.*
 
@@ -188,7 +193,8 @@ For the interactive experiences that Emacs excels at, regex provides a powerful 
 - It can be received or transformed from user input to specify powerful queries over complex data!@@latex:\footnote{See \texttt{helm-rg} and \texttt{telepathygrams} at end.}@@
 
 ** We Can Go Further...
-...but this might require going beyond "regex" alone!
+@@latex:\centering@@
+*...but this might require going beyond "regex" alone!*
 
 * What is the Emacs regex engine? How is it invoked?
 ** Answer\footnote{This section is an unfortunately brief walkthrough through the current regex logic.}
@@ -199,12 +205,16 @@ In two ways:
 - over a single contiguous string input,
 - over the two halves of the gap buffer.
 
-** ~regex-emacs~ [1: @@latex:\uline{Data Layout}@@]
+** ~regex-emacs~
+@@latex:\framesubtitle{[1: \uline{Data Layout}]}@@
+
 The compiled pattern is stored as an ~re_pattern_buffer~ struct from ~src/regex-emacs.h~. @@latex:\vspace{4pt}@@
 - In particular, ~unsigned char *buffer~ holds the instructions!
 - Case folding uses the char table in ~Lisp_Object translate~.
 
-** ~regex-emacs~ [2: @@latex:\uline{Match Loop}@@]
+** ~regex-emacs~
+@@latex:\framesubtitle{[2: \uline{Match Loop}]}@@
+
 The matching loop in ~re_match_2_internal()~ in ~src/regex-emacs.c~ goes vaguely as follows: @@latex:\vspace{4pt}@@
 1. extract current and next char
   - perform multibyte varint decoding to iterate bytes
@@ -224,6 +234,11 @@ Non-contiguous matching over the two halves of the gap buffer is supported by ch
   - Or at least, it doesn't really differ from "standard"@@latex:\footnote{There is no (real) standard (yet): \url{https://jamiejennings.com/posts/2021-09-07-dont-look-back-1/}.}@@ Unicode regex matching.
 - Emacs reads in data from whatever encoding into multibyte,@@latex:\footnote{See \url{https://www.gnu.org/software/emacs/manual/html_node/elisp/Text-Representations.html}.}@@ and the regex engine only acts upon this normalized encoding.
 
+** Is that all?
+@@latex:\centering@@
+
+*How much time\footnote{and space} do you have?*
+
 * How could we do regex better in Emacs? How could Emacs do regex better than anywhere else?
 ** Answer\footnote{This section will describe several potential paths we might investigate, paraphrasing discussion from ~emacs-devel~.}
 *** How could we do regex better in Emacs?
@@ -236,48 +251,61 @@ Non-contiguous matching over the two halves of the gap buffer is supported by ch
 ** Separately-Compiled Regexps
 \framesubtitle{Precompile regexps to enable more powerful compilation techniques.}
 
-I have demonstrated this in a test branch.@@latex:\footnote{\url{https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex}} \vspace{4pt}@@
-- Adds native elisp objects for _regexp_ and _match data_.
+- Problem :: Emacs currently uses a fixed-size global compile cache.
+- Solution :: Create native elisp objects for _regexps_ and _match data_.@@latex:\footnote{I have demonstrated this in a test branch: \url{https://github.com/cosmicexplorer/emacs/tree/lisp-level-regex}.}@@
   - Use ~(make-regexp "...")~ to explicitly compile a pattern string.
   - All supported\footnote{Literal search methods do not use the regex engine.} methods in ~search.c~ can accept either a compiled regexp or bare string.
-- Artificial benchmarks@@latex:\footnote{Using \texttt{test/manual/perf.el}.}@@ show an improvement,\footnote{Using the native match data object produces no improvement over consing a list.} but I haven't been able to produce an apples-to-apples comparison yet.
+
+** Separately-Compiled Regexps
+\framesubtitle{Precompile regexps to enable more powerful compilation techniques.}
+
+- Results :: *Artificial benchmarks@@latex:\footnote{Using \texttt{test/manual/perf.el}.}@@ show an improvement!\footnote{Using the native match data object produces no improvement over consing a list.}*
+  - ...but I haven't been able to produce an apples-to-apples comparison yet.
   - Syntax highlighting would be the most appropriate, but caching these compiles currently breaks fontification.\footnote{Current guess is that it relies on buffer-local state not available when precompiled.}
 
 ** Match Over Bytes, not Chars
 \framesubtitle{Compile patterns to byte-level automata, then iterate over bytes.}
 
-Char-by-char varint decoding of multibyte\footnote{No worse than UTF-8 in general, but we may be able to pipeline decoding somehow.} is comparatively slow. @@latex:\vspace{4pt}@@
-- This is the reason go's "RE2" is much much slower than the C++ ~RE2~ library.\footnote{Source: a very dear friend.}
-- We can do this work at compile time instead!\footnote{This is already what we do for e.g. char-folding.}
+- Problem :: Char-by-char varint decoding of multibyte\footnote{No worse than UTF-8 in general, but we may be able to pipeline decoding somehow.} is comparatively slow. @@latex:\vspace{4pt}@@
+  - This is the reason go's "RE2" is much much slower than the C++ ~RE2~ library.\footnote{Source: a very dear friend.}
+- Solution :: We can do this work at compile time instead!\footnote{This is already what we do for e.g. char-folding.}
   - Generates a larger automaton in order to be able to think in terms of byte ranges.\footnote{This is a necessary prerequisite for SIMD instructions.}
 
-** SIMD Literal Search
-\framesubtitle{Expose a SIMD literal search method for specific search tasks.}
+** Explicit Control over Linguistic Complexity
+\framesubtitle{Break apart the monolithic regex pattern interface into subroutines for specific inputs.}
 
-This is used as a "prefilter" optimization in high-performance regex engines.@@latex:\footnote{See \url{https://github.com/BurntSushi/rebar} for a fantastic discussion of techniques for regex performance.} \vspace{4pt}@@
-- This is one of the most significant contributions to performance in these engines, skipping over much of the input before executing the byte-by-byte automaton.
+- Problem[1] :: There's no way to validate that a given pattern isn't more complex than expected.
+  - This requires careful escaping to avoid accidentally triggering regex behavior.
+- Problem[2] :: There's no way to ensure Emacs uses faster algorithms@@latex:\footnote{See \url{https://github.com/BurntSushi/rebar} for a fantastic discussion of techniques for regex performance.}@@ for less complex patterns.\footnote{We perform a heuristic check for literal patterns, but only in some code paths.}
+  - This results in difficult-to-understand performance characteristics.
+- Problem[3] :: There's no way to specify different search semantics.\footnote{Such as allowing false positives, or matching against a set of patterns.}
+  - Instead, we have a single type of input and a single type of output.
 
 ** Explicit Control over Linguistic Complexity
-\framesubtitle{Expose APIs which enforce a strict degree of linguistic complexity for deterministic runtime.}
+\framesubtitle{Break apart the monolithic regex pattern interface into subroutines for specific inputs.}
 
-Searching for a literal string tends to be a special case, and the user should be able to make absolutely sure Emacs uses the faster algorithm, or error out if the input was invalid.\footnote{Searching for a set of literals (e.g. keywords) at once can also be done very efficiently with specific algorithms that don't use a general NFA.} @@latex:\vspace{4pt}@@
-- We already duck out to a special literal matching engine in ~search.c~ if we're matching a literal against a buffer.
-  - But this requires a heuristic check for literal-only strings instead of enforcing them, resulting in difficult-to-understand performance characteristics.
-  - This also involves an entirely separate code path which would be nice to unify.
-- Backrefs are a special case on the other end of complexity.@@latex:\footnote{These have recently been formalized: \url{https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/}.}@@
+- Solution[1] :: Single or multiple literals\footnote{Multiple literals is especially helpful for matching a set of keywords.} can employ specialized SIMD algorithms to avoid reading every single byte one by one.@@latex:\footnote{This is used as a "prefilter" optimization in modern engines like \texttt{RE2} to avoid reading each byte one-by-one.}@@
+- Solution[2] :: Non-capturing patterns or patterns without backrefs@@latex:\footnote{These have recently been formalized: \url{https://jamiejennings.com/posts/2023-10-01-dont-look-back-3/}.}@@ can use faster automata.
+- Solution[3] :: Collecting a sequence of matches for the same pattern can be done all at once.\footnote{Overlapping matches can be supported for ambiguous cases, instead of choosing longest or shortest only.}
+- Solution[4] :: Matching against a set of patterns can be done more efficiently and ergonomically than combining with ~\|~.
 
 ** Lisp Regexp Library
 \framesubtitle{Expose a lisp-level library for regexp matching.}
 
-- The compiled form of the regexp in ~re_pattern_buffer~ can be /executed/, but not really /introspected/.
+- Problem :: The compiled form of the regexp in ~re_pattern_buffer~ can be /executed/, but not really /introspected/.
   - No form of "IR": this also contributes to the difficulty of composing patterns together.
-  - This is largely because it's implemented in C.
-- We have ~libgccjit~ now: @@latex:\alert{why not implement the regex engine itself in lisp?}\footnote{proposed by Pip Cet on \texttt{emacs-devel}}@@
-  - Alternatively, translate the regexp into lisp which we can then JIT.
+- Solution@@latex:\footnote{Proposed by Pip Cet on \texttt{emacs-devel}.}@@ :: We have ~libgccjit~ now: *why not implement the regex engine itself in lisp?\footnote{Alternatively, translate the regexp into lisp which we can then JIT.}*
+- Results :: /(postulated)/:
   - Integration into ~pcase~ could achieve a form of type safety along with interleaving lisp-level matching logic.
-- Biggest issue for optimization: lisp code\footnote{or native modules} can't access or operate on the separate halves of the gap buffer.
+  - Biggest issue for optimization: lisp code (or native modules) can't access or operate on the separate halves of the gap buffer.
 
-* Current and Future Work
+* Do you have any concrete examples? Or are you just posturing?
+** Answer
+*** Do you have any concrete examples?
+Yes!
+*** Or are you just posturing?
+My posture is terrible!@@latex:\footnote[frame]{Other translations have also been suggested by modern scholars, including \textit{formidable}, as well as \textit{awe-inspiring}.}@@
+
 ** @@latex:\texttt{helm-rg}\footnote{\url{https://github.com/cosmicexplorer/helm-rg}}@@
 @@latex:\framesubtitle{A code search tool similar to \texttt{M-x grep}, using \texttt{ripgrep}\footnote{\url{https://blog.burntsushi.net/ripgrep/}}.}@@
 
@@ -313,7 +341,7 @@ I want to beat ~ripgrep~ by "cheating"\footnote{There are other ways to cheat he
 *Paul Wankadia taught me everything.*
 
 ** ~(point-max)~
-@@latex:\framesubtitle{\twemoji{microphone} call me beep me if you wanna reach me}@@
+@@latex:\framesubtitle{\twemoji{microphone} call me beep me if you wanna reach me\footnote{or hire me}}@@
 
 *** ~text-mode~
 - fedi :: [[https://circumstances.run/@hipsterelectron][~@hipsterelectron@circumstances.run~]]@@latex:\footnote{also (sporadically) \href{https://twitter.com/hipsterelectron}{twitter} \& \href{https://bsky.app/profile/hipsterelectron.bsky.social}{bluesky}}@@
