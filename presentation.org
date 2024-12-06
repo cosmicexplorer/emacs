@@ -4,6 +4,8 @@
 #+EMAIL:	dmc2@hypnicjerk.ai
 #+DATE:		EmacsConf 2024
 
+#+EXPORT_FILE_NAME: emacs-regex-compilation-danny-mcclanahan-emacsconf-2024.pdf
+
 #+DESCRIPTION:
 #+KEYWORDS:
 
